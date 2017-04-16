@@ -10,7 +10,8 @@
 #include <vector>
 #include "Message.h"
 
-class MessageBus {
+class MessageBus
+{
 public:
   MessageBus() {};
   ~MessageBus() {};

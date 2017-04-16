@@ -7,7 +7,8 @@
 
 #include <iostream>
 
-class Message {
+class Message
+{
 public:
   Message(const std::string &event)
   {
