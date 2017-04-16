@@ -1,5 +1,4 @@
 #include <iostream>
-#include "Channel.h"
 #include "Systems.h"
 
 int main() {
@@ -7,7 +6,7 @@ int main() {
   Console console(&messageBus);
   Input input(&messageBus);
 
-  for (int i = 0; i < 50; ++i) {
+  for (int i = 0; i < 5; ++i) {
     input.update();
     messageBus.notify();
   }
