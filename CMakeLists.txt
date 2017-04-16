@@ -3,5 +3,5 @@ project(Engine)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(SOURCE_FILES main.cpp Channel.cpp Channel.h Logger.cpp Logger.h)
+set(SOURCE_FILES main.cpp Channel.cpp Channel.h Logger.cpp Logger.h Message.cpp Message.h MessageBus.cpp MessageBus.h)
 add_executable(Engine ${SOURCE_FILES})
