@@ -13,9 +13,6 @@
 
 class Channel {
 public:
-  template<typename T>
-  class InternalChannel;
-
   template<typename tMessage, typename tHandler>
   static void add(tHandler *handler) {
     // typically, the handler type is derived while the message type would be explicit
@@ -87,5 +84,23 @@ private:
 
 };
 
+struct MyEvent
+{
+  int value;
+};
+struct MyHandler
+{
+  void operator()(const MyEvent& evt)
+  {
+    std::cout << "Evt: " << evt.value << "\n";
+  }
+};
+
+struct MyIntHandler
+{
+  void operator()(const int& i) {
+    std::cout << "[int]: " << i << "\n";
+  }
+};
 
 #endif //ENGINE_CHANNEL_H
