@@ -10,9 +10,17 @@
 class Message
 {
 public:
-  Message(const std::string &event)
+  enum class MessageType
+  {
+    LOG,
+    INPUT,
+    VIDEO,
+    AUDIO
+  };
+  Message(const std::string &event, MessageType msgType)
   {
     messageEvent = event;
+    messageType = msgType;
   }
 
   std::string getEvent()
@@ -20,9 +28,14 @@ public:
     return messageEvent;
   }
 
+  MessageType getType()
+  {
+    return messageType;
+  }
+
 private:
   std::string messageEvent;
-  std::string messageType;
+  MessageType messageType;
 };
 
 #endif //MESSAGE_H
