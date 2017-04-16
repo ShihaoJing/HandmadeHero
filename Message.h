@@ -22,6 +22,7 @@ public:
 
 private:
   std::string messageEvent;
+  std::string messageType;
 };
 
 #endif //MESSAGE_H
