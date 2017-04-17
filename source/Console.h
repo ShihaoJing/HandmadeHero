@@ -2,8 +2,8 @@
 // Created by Shihao Jing on 4/16/17.
 //
 
-#ifndef ENGINE_CONSOLE_H
-#define ENGINE_CONSOLE_H
+#ifndef CONSOLE_H
+#define CONSOLE_H
 
 #include "System.h"
 

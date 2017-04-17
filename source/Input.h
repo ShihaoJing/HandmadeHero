@@ -2,10 +2,12 @@
 // Created by Shihao Jing on 4/16/17.
 //
 
-#ifndef ENGINE_INPUT_H
-#define ENGINE_INPUT_H
+#ifndef INPUT_H
+#define INPUT_H
 
 #include "System.h"
+#include <iostream>
+
 class Input : public System
 {
 public:
@@ -16,9 +18,7 @@ public:
 
   void update()
   {
-    Message::MessageType msgType = Message::MessageType::INPUT;
-    Message msg("input signal W_PRESS", msgType);
-    send(msg);
+    //TODO Listen Keyboard Input
   }
 private:
   void onNotify(Message msg)

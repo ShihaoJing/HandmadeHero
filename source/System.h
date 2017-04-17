@@ -2,8 +2,8 @@
 // Created by Shihao Jing on 4/15/17.
 //
 
-#ifndef ENGINE_SYSTEM_H
-#define ENGINE_SYSTEM_H
+#ifndef SYSTEM_H
+#define SYSTEM_H
 
 #include <iostream>
 #include <functional>

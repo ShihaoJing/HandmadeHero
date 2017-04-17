@@ -10,6 +10,6 @@ int main() {
     input.update();
     messageBus.notify();
   }
-
+  
   return 0;
 }
