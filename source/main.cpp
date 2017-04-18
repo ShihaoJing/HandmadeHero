@@ -25,6 +25,7 @@ global_variable sdl_offscreen_buffer GlobalBackBuffer;
 
 #define MAX_CONTROLLERS 4
 SDL_GameController* ControllerHandles[MAX_CONTROLLERS];
+SDL_Haptic* RumbleHandles[MAX_CONTROLLERS];
 
 typedef int8_t int8;
 typedef int16_t int16;
@@ -125,6 +126,14 @@ SDLOpenGameControllers()
     if (ControllerIndex >= MAX_CONTROLLERS)
       continue;
     ControllerHandles[ControllerIndex] = SDL_GameControllerOpen(JoystickIndex);
+    RumbleHandles[ControllerIndex] = SDL_HapticOpen(JoystickIndex);
+    if (RumbleHandles[ControllerIndex]
+        && SDL_HapticRumbleInit(RumbleHandles[ControllerIndex]) != 0)
+    {
+      SDL_HapticClose(RumbleHandles[ControllerIndex]);
+      RumbleHandles[ControllerIndex] = 0;
+    }
+
     ControllerIndex++;
   }
 }
@@ -136,6 +145,9 @@ SDLCloseGameControllers()
   {
     if (ControllerHandles[ControllerIndex])
       SDL_GameControllerClose(ControllerHandles[ControllerIndex]);
+
+    if (RumbleHandles[ControllerIndex])
+      SDL_HapticClose(RumbleHandles[ControllerIndex]);
   }
 }
 
@@ -149,8 +161,78 @@ bool HandleEvent(SDL_Event* Event)
     {
       printf("SDL_QUIT\n");
       ShouldQuit = true;
-      break;
+    } break;
+
+    case SDL_KEYDOWN:
+
+    case SDL_KEYUP:
+    {
+      SDL_Keycode KeyCode = Event->key.keysym.sym;
+      bool IsDown = (Event->key.state == SDL_PRESSED);
+      bool WasDown = false;
+      if (Event->key.state == SDL_RELEASED)
+      {
+        WasDown = true;
+      }
+      else if (Event->key.repeat != 0)
+      {
+        WasDown = true;
+      }
+
+      // NOTE: In the windows version, we used "if (IsDown != WasDown)"
+      // to detect key repeats. SDL has the 'repeat' value, though,
+      // which we'll use.
+      if (Event->key.repeat == 0)
+      {
+        if(KeyCode == SDLK_w)
+        {
+        }
+        else if(KeyCode == SDLK_a)
+        {
+        }
+        else if(KeyCode == SDLK_s)
+        {
+        }
+        else if(KeyCode == SDLK_d)
+        {
+        }
+        else if(KeyCode == SDLK_q)
+        {
+        }
+        else if(KeyCode == SDLK_e)
+        {
+        }
+        else if(KeyCode == SDLK_UP)
+        {
+        }
+        else if(KeyCode == SDLK_LEFT)
+        {
+        }
+        else if(KeyCode == SDLK_DOWN)
+        {
+        }
+        else if(KeyCode == SDLK_RIGHT)
+        {
+        }
+        else if(KeyCode == SDLK_ESCAPE)
+        {
+          printf("ESCAPE: ");
+          if(IsDown)
+          {
+            printf("IsDown ");
+          }
+          if(WasDown)
+          {
+            printf("WasDown");
+          }
+          printf("\n");
+        }
+        else if(KeyCode == SDLK_SPACE)
+        {
+        }
+      }
     }
+
     case SDL_WINDOWEVENT:
     {
       switch (Event->window.event)
@@ -174,7 +256,7 @@ bool HandleEvent(SDL_Event* Event)
           SDLUpdateWindow(Window, Renderer, &GlobalBackBuffer);
         } break;
       }
-    }
+    } break;
 
   }
   return ShouldQuit;
@@ -183,6 +265,9 @@ bool HandleEvent(SDL_Event* Event)
 int main()
 {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
+  // Initialise Game Controllers.
+  SDLOpenGameControllers();
+  // Create Window.
   SDL_Window* Window;
   Window = SDL_CreateWindow("Handmade Hero",
                             SDL_WINDOWPOS_UNDEFINED,
@@ -192,6 +277,7 @@ int main()
                             SDL_WINDOW_RESIZABLE);
   if (Window)
   {
+    // Create a "Renderer" for our Window
     SDL_Renderer* Renderer = SDL_CreateRenderer(Window,
                                                 -1,
                                                 0);
@@ -214,11 +300,69 @@ int main()
             Running = false;
           }
         }
+
+        // Poll our controllers for input.
+        for (int ControllerIndex = 0;
+             ControllerIndex < MAX_CONTROLLERS;
+             ++ControllerIndex)
+        {
+          if(ControllerHandles[ControllerIndex] != 0
+              && SDL_GameControllerGetAttached(ControllerHandles[ControllerIndex]))
+          {
+            // NOTE: We have a controller with index ControllerIndex.
+            bool Up = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                  SDL_CONTROLLER_BUTTON_DPAD_UP);
+            bool Down = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                    SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+            bool Left = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                    SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+            bool Right = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                     SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+            bool Start = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                     SDL_CONTROLLER_BUTTON_START);
+            bool Back = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                    SDL_CONTROLLER_BUTTON_BACK);
+            bool LeftShoulder = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                            SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+            bool RightShoulder = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                             SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+            bool AButton = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                       SDL_CONTROLLER_BUTTON_A);
+            bool BButton = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                       SDL_CONTROLLER_BUTTON_B);
+            bool XButton = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                       SDL_CONTROLLER_BUTTON_X);
+            bool YButton = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                                       SDL_CONTROLLER_BUTTON_Y);
+
+            int16 StickX = SDL_GameControllerGetAxis(ControllerHandles[ControllerIndex],
+                                                     SDL_CONTROLLER_AXIS_LEFTX);
+            int16 StickY = SDL_GameControllerGetAxis(ControllerHandles[ControllerIndex],
+                                                     SDL_CONTROLLER_AXIS_LEFTY);
+
+            if (AButton)
+            {
+              YOffset += 2;
+            }
+            if (BButton)
+            {
+              if (RumbleHandles[ControllerIndex])
+              {
+                SDL_HapticRumblePlay(RumbleHandles[ControllerIndex], 0.5f, 2000);
+              }
+            }
+
+          }
+          else
+          {
+            // TODO: This controller is not plugged in.
+          }
+        } // end of controller polling
+
         RenderWeirdGradient(GlobalBackBuffer, XOffset, YOffset);
         SDLUpdateWindow(Window, Renderer, &GlobalBackBuffer);
 
         ++XOffset;
-        YOffset += 2;
       }
     }
     else
