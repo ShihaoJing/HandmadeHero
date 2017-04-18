@@ -3,6 +3,8 @@
 #include <sys/mman.h>
 #include <math.h>
 #include <x86intrin.h>
+#include "handmade.h"
+#include "handmade.cpp"
 
 #define Pi32 3.14159265358979f
 
@@ -54,29 +56,6 @@ SDL_Haptic* RumbleHandles[MAX_CONTROLLERS];
 
 sdl_audio_ring_buffer AudioRingBuffer;
 
-internal void
-RenderWeirdGradient(sdl_offscreen_buffer Buffer,
-                    int BlueOffset,
-                    int GreenOffset)
-{
-  int Width = Buffer.Width;
-  int Height = Buffer.Height;
-
-  uint8* Row = (uint8*)Buffer.Memory;
-  for(int Y = 0; Y < Height; ++Y)
-  {
-    uint32* Pixel = (uint32 *)Row;
-    for(int X = 0; X < Width; ++X)
-    {
-      uint8 Blue = (X + BlueOffset);
-      uint8 Green = (Y + GreenOffset);
-
-      *Pixel++ = ((Green << 8) | Blue);
-    }
-
-    Row += Buffer.Pitch;
-  }
-}
 
 internal void
 SDLResizeTexture(sdl_offscreen_buffer* Buffer,
@@ -532,7 +511,12 @@ int main()
           }
         } // end of controller polling
 
-        RenderWeirdGradient(GlobalBackBuffer, XOffset, YOffset);
+        game_offscreen_buffer Buffer = {};
+        Buffer.Memory = GlobalBackBuffer.Memory;
+        Buffer.Width = GlobalBackBuffer.Width;
+        Buffer.Height = GlobalBackBuffer.Height;
+        Buffer.Pitch = GlobalBackBuffer.Pitch;
+        GameUpdateAndRender(&Buffer, XOffset, YOffset);
 
         // Sound output test
         SDL_LockAudio();
