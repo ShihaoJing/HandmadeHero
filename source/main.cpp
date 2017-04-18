@@ -2,6 +2,7 @@
 #include <SDL.h>
 #include <sys/mman.h>
 #include <math.h>
+#include <x86intrin.h>
 
 #define Pi32 3.14159265358979f
 
@@ -395,6 +396,7 @@ int main()
                | SDL_INIT_GAMECONTROLLER
                | SDL_INIT_HAPTIC
                | SDL_INIT_AUDIO);
+  uint64 PerfCountFrequency = SDL_GetPerformanceFrequency();
 
   // Initialise Game Controllers.
   SDLOpenGameControllers();
@@ -442,6 +444,8 @@ int main()
                              * SoundOutput.BytesPerSample);
       SDL_PauseAudio(0);
 
+      uint64 LastCounter = SDL_GetPerformanceCounter();
+      uint64 LastCycleCount = _rdtsc();
       while (Running)
       {
         SDL_Event Event;
@@ -551,8 +555,23 @@ int main()
         SDL_UnlockAudio();
         SDLFillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite);
 
-
         SDLUpdateWindow(Window, Renderer, &GlobalBackBuffer);
+
+        //Count Performance
+        uint64 EndCycleCount = _rdtsc();
+        uint64 EndCounter = SDL_GetPerformanceCounter();
+        uint64 CounterElapsed = EndCounter - LastCounter;
+        uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
+
+        real64 MSPerFrame = (((1000.0f * (real64)CounterElapsed) / (real64)PerfCountFrequency));
+        real64 FPS = (real64)PerfCountFrequency / (real64)CounterElapsed;
+        real64 MCPF = ((real64)CyclesElapsed / (1000.0f * 1000.0f));
+
+        printf("%.02fms/f, %.02f/s, %.02fmc/f\n", MSPerFrame, FPS, MCPF);
+
+        LastCycleCount = EndCycleCount;
+        LastCounter = EndCounter;
+
 
         ++XOffset;
       }
