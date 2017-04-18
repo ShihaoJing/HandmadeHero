@@ -1,10 +1,8 @@
 #include <iostream>
 #include <SDL.h>
-#include <stdlib.h>
 #include <sys/mman.h>
 
 #define internal static
-#define local_persist static
 #define global_variable static
 
 struct sdl_offscreen_buffer
@@ -24,6 +22,9 @@ struct sdl_Window_dimension
 };
 
 global_variable sdl_offscreen_buffer GlobalBackBuffer;
+
+#define MAX_CONTROLLERS 4
+SDL_GameController* ControllerHandles[MAX_CONTROLLERS];
 
 typedef int8_t int8;
 typedef int16_t int16;
@@ -101,8 +102,8 @@ SDLGetWindowDimension(SDL_Window* Window)
   return Result;
 }
 
-internal
-void SDLUpdateWindow(SDL_Window* Window, SDL_Renderer* Renderer, sdl_offscreen_buffer* Buffer)
+internal void
+SDLUpdateWindow(SDL_Window* Window, SDL_Renderer* Renderer, sdl_offscreen_buffer* Buffer)
 {
   SDL_UpdateTexture(Buffer->Texture,
                     0,
@@ -111,6 +112,33 @@ void SDLUpdateWindow(SDL_Window* Window, SDL_Renderer* Renderer, sdl_offscreen_b
   SDL_RenderCopy(Renderer, Buffer->Texture, 0, 0);
   SDL_RenderPresent(Renderer);
 }
+
+internal void
+SDLOpenGameControllers()
+{
+  int MaxJoySticks = SDL_NumJoysticks();
+  int ControllerIndex = 0;
+  for (int JoystickIndex = 0; JoystickIndex < MaxJoySticks; ++JoystickIndex)
+  {
+    if (!SDL_IsGameController(JoystickIndex))
+      continue;
+    if (ControllerIndex >= MAX_CONTROLLERS)
+      continue;
+    ControllerHandles[ControllerIndex] = SDL_GameControllerOpen(JoystickIndex);
+    ControllerIndex++;
+  }
+}
+
+internal void
+SDLCloseGameControllers()
+{
+  for (int ControllerIndex = 0; ControllerIndex < MAX_CONTROLLERS; ++ControllerIndex)
+  {
+    if (ControllerHandles[ControllerIndex])
+      SDL_GameControllerClose(ControllerHandles[ControllerIndex]);
+  }
+}
+
 
 bool HandleEvent(SDL_Event* Event)
 {
@@ -154,6 +182,7 @@ bool HandleEvent(SDL_Event* Event)
 
 int main()
 {
+  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
   SDL_Window* Window;
   Window = SDL_CreateWindow("Handmade Hero",
                             SDL_WINDOWPOS_UNDEFINED,
@@ -194,12 +223,12 @@ int main()
     }
     else
     {
-
+      //TODO: Log
     }
   }
   else
   {
-
+    //TODO: Log
   }
 
   SDL_Quit();
