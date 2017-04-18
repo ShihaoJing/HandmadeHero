@@ -5,6 +5,16 @@
 #define internal static
 #define global_variable static
 
+typedef int8_t int8;
+typedef int16_t int16;
+typedef int32_t int32;
+typedef int64_t int64;
+
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
 struct sdl_offscreen_buffer
 {
   // NOTE(casey): Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
@@ -13,6 +23,14 @@ struct sdl_offscreen_buffer
   int Width;
   int Height;
   int Pitch;
+};
+
+struct sdl_audio_ring_buffer
+{
+  int Size;
+  int WriteCursor;
+  int PlayCursor;
+  void *Data;
 };
 
 struct sdl_Window_dimension
@@ -27,15 +45,7 @@ global_variable sdl_offscreen_buffer GlobalBackBuffer;
 SDL_GameController* ControllerHandles[MAX_CONTROLLERS];
 SDL_Haptic* RumbleHandles[MAX_CONTROLLERS];
 
-typedef int8_t int8;
-typedef int16_t int16;
-typedef int32_t int32;
-typedef int64_t int64;
-
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
+sdl_audio_ring_buffer AudioRingBuffer;
 
 internal void
 RenderWeirdGradient(sdl_offscreen_buffer Buffer,
@@ -153,11 +163,27 @@ SDLCloseGameControllers()
   }
 }
 
+//TODO: Instead, use SDL_QueueAudio() function
+
 internal void
 SDLAudioCallback(void* UserData, Uint8* AudioData, int Length)
 {
-  // Clear our audio buffer to silence.
-  memset(AudioData, 0, Length);
+  sdl_audio_ring_buffer* RingBuffer = (sdl_audio_ring_buffer*)UserData;
+
+  int Region1Size = Length;
+  int Region2Size = 0;
+  if (RingBuffer->PlayCursor + Length > RingBuffer->Size)
+  {
+    Region1Size = RingBuffer->Size - RingBuffer->PlayCursor;
+    Region2Size = Length - Region1Size;
+  }
+  memcpy(AudioData, (uint8*)(RingBuffer->Data) + RingBuffer->PlayCursor,
+         Region1Size);
+  memcpy(&AudioData[Region1Size], RingBuffer->Data, Region2Size);
+  RingBuffer->PlayCursor = (RingBuffer->PlayCursor + Length)
+      % RingBuffer->Size;
+  RingBuffer->WriteCursor = (RingBuffer->PlayCursor + 2048)
+      % RingBuffer->Size;
 }
 
 internal void
@@ -168,8 +194,13 @@ SDLInitAudio(int32 SamplesPerSecond, int32 BufferSize)
   AudioSettings.freq = SamplesPerSecond;
   AudioSettings.format = AUDIO_S16LSB;
   AudioSettings.channels = 2;
-  AudioSettings.samples = BufferSize;
+  AudioSettings.samples = 1024;
   AudioSettings.callback = &SDLAudioCallback;
+  AudioSettings.userdata = &AudioRingBuffer;
+
+  AudioRingBuffer.Size = BufferSize;
+  AudioRingBuffer.Data = malloc(BufferSize);
+  AudioRingBuffer.PlayCursor = AudioRingBuffer.WriteCursor = 0;
 
   SDL_OpenAudio(&AudioSettings, 0);
 
@@ -182,7 +213,6 @@ SDLInitAudio(int32 SamplesPerSecond, int32 BufferSize)
     SDL_CloseAudio();
   }
 
-  SDL_PauseAudio(0);
 }
 
 bool HandleEvent(SDL_Event* Event)
@@ -253,6 +283,7 @@ bool HandleEvent(SDL_Event* Event)
           if(IsDown)
           {
             printf("IsDown ");
+            ShouldQuit = true;
           }
           if(WasDown)
           {
@@ -301,14 +332,12 @@ int main()
                | SDL_INIT_GAMECONTROLLER
                | SDL_INIT_HAPTIC
                | SDL_INIT_AUDIO);
+
   // Initialise Game Controllers.
   SDLOpenGameControllers();
-  // Open our audio device:
-  SDLInitAudio(48000, 4096);
 
   // Create Window.
-  SDL_Window* Window;
-  Window = SDL_CreateWindow("Handmade Hero",
+  SDL_Window* Window = SDL_CreateWindow("Handmade Hero",
                             SDL_WINDOWPOS_UNDEFINED,
                             SDL_WINDOWPOS_UNDEFINED,
                             640,
@@ -329,6 +358,20 @@ int main()
                        Dimension.Width, Dimension.Height);
       int XOffset = 0;
       int YOffset = 0;
+
+      // NOTE: Sound test
+      int SamplesPerSecond = 48000;
+      int ToneHz = 256;
+      int16 ToneVolume = 3000;
+      uint32 RunningSampleIndex = 0;
+      int SquareWavePeriod = SamplesPerSecond / ToneHz;
+      int HalfSquareWavePeriod = SquareWavePeriod / 2;
+      int BytesPerSample = sizeof(int16) * 2;
+      int SecondaryBufferSize = SamplesPerSecond * BytesPerSample;
+      // Open our audio device:
+      SDLInitAudio(48000, SecondaryBufferSize);
+      bool SoundIsPlaying = false;
+
       while (Running)
       {
         SDL_Event Event;
@@ -416,6 +459,61 @@ int main()
         } // end of controller polling
 
         RenderWeirdGradient(GlobalBackBuffer, XOffset, YOffset);
+
+        // Sound output test
+        SDL_LockAudio();
+        int ByteToLock = RunningSampleIndex * BytesPerSample % SecondaryBufferSize;
+        int BytesToWrite;
+        if(ByteToLock == AudioRingBuffer.PlayCursor)
+        {
+          BytesToWrite = SecondaryBufferSize;
+        }
+        else if(ByteToLock > AudioRingBuffer.PlayCursor)
+        {
+          BytesToWrite = (SecondaryBufferSize - ByteToLock);
+          BytesToWrite += AudioRingBuffer.PlayCursor;
+        }
+        else
+        {
+          BytesToWrite = AudioRingBuffer.PlayCursor - ByteToLock;
+        }
+
+        // TODO(casey): More strenuous test!
+        // TODO(casey): Switch to a sine wave
+        void* Region1 = (uint8*)AudioRingBuffer.Data + ByteToLock;
+        int Region1Size = BytesToWrite;
+        if (Region1Size + ByteToLock > SecondaryBufferSize) Region1Size = SecondaryBufferSize - ByteToLock;
+        void* Region2 = AudioRingBuffer.Data;
+        int Region2Size = BytesToWrite - Region1Size;
+        SDL_UnlockAudio();
+        int Region1SampleCount = Region1Size/BytesPerSample;
+        int16* SampleOut = (int16 *)Region1;
+        for(int SampleIndex = 0;
+            SampleIndex < Region1SampleCount;
+            ++SampleIndex)
+        {
+          int16 SampleValue = ((RunningSampleIndex++ / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
+          *SampleOut++ = SampleValue;
+          *SampleOut++ = SampleValue;
+        }
+
+        int Region2SampleCount = Region2Size/BytesPerSample;
+        SampleOut = (int16 *)Region2;
+        for(int SampleIndex = 0;
+            SampleIndex < Region2SampleCount;
+            ++SampleIndex)
+        {
+          int16 SampleValue = ((RunningSampleIndex++ / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
+          *SampleOut++ = SampleValue;
+          *SampleOut++ = SampleValue;
+        }
+
+        if(!SoundIsPlaying)
+        {
+          SDL_PauseAudio(0);
+          SoundIsPlaying = true;
+        }
+
         SDLUpdateWindow(Window, Renderer, &GlobalBackBuffer);
 
         ++XOffset;
@@ -431,6 +529,7 @@ int main()
     //TODO: Log
   }
 
+  SDLCloseGameControllers();
   SDL_Quit();
   return 0;
 }
