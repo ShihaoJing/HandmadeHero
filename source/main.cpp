@@ -104,7 +104,8 @@ SDLGetWindowDimension(SDL_Window* Window)
 }
 
 internal void
-SDLUpdateWindow(SDL_Window* Window, SDL_Renderer* Renderer, sdl_offscreen_buffer* Buffer)
+SDLUpdateWindow(SDL_Window* Window,
+                SDL_Renderer* Renderer, sdl_offscreen_buffer* Buffer)
 {
   SDL_UpdateTexture(Buffer->Texture,
                     0,
@@ -141,7 +142,8 @@ SDLOpenGameControllers()
 internal void
 SDLCloseGameControllers()
 {
-  for (int ControllerIndex = 0; ControllerIndex < MAX_CONTROLLERS; ++ControllerIndex)
+  for (int ControllerIndex = 0;
+       ControllerIndex < MAX_CONTROLLERS; ++ControllerIndex)
   {
     if (ControllerHandles[ControllerIndex])
       SDL_GameControllerClose(ControllerHandles[ControllerIndex]);
@@ -151,6 +153,37 @@ SDLCloseGameControllers()
   }
 }
 
+internal void
+SDLAudioCallback(void* UserData, Uint8* AudioData, int Length)
+{
+  // Clear our audio buffer to silence.
+  memset(AudioData, 0, Length);
+}
+
+internal void
+SDLInitAudio(int32 SamplesPerSecond, int32 BufferSize)
+{
+  SDL_AudioSpec AudioSettings = {0};
+
+  AudioSettings.freq = SamplesPerSecond;
+  AudioSettings.format = AUDIO_S16LSB;
+  AudioSettings.channels = 2;
+  AudioSettings.samples = BufferSize;
+  AudioSettings.callback = &SDLAudioCallback;
+
+  SDL_OpenAudio(&AudioSettings, 0);
+
+  printf("Initialised an Audio device at frequency %d Hz, %d Channels\n",
+         AudioSettings.freq, AudioSettings.channels);
+
+  if (AudioSettings.format != AUDIO_S16LSB)
+  {
+    printf("Oops! We didn't get AUDIO_S16LSB as our sample format!\n");
+    SDL_CloseAudio();
+  }
+
+  SDL_PauseAudio(0);
+}
 
 bool HandleEvent(SDL_Event* Event)
 {
@@ -264,9 +297,15 @@ bool HandleEvent(SDL_Event* Event)
 
 int main()
 {
-  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
+  SDL_Init(SDL_INIT_VIDEO
+               | SDL_INIT_GAMECONTROLLER
+               | SDL_INIT_HAPTIC
+               | SDL_INIT_AUDIO);
   // Initialise Game Controllers.
   SDLOpenGameControllers();
+  // Open our audio device:
+  SDLInitAudio(48000, 4096);
+
   // Create Window.
   SDL_Window* Window;
   Window = SDL_CreateWindow("Handmade Hero",
@@ -307,38 +346,53 @@ int main()
              ++ControllerIndex)
         {
           if(ControllerHandles[ControllerIndex] != 0
-              && SDL_GameControllerGetAttached(ControllerHandles[ControllerIndex]))
+              && SDL_GameControllerGetAttached(
+                  ControllerHandles[ControllerIndex]))
           {
             // NOTE: We have a controller with index ControllerIndex.
-            bool Up = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                  SDL_CONTROLLER_BUTTON_DPAD_UP);
-            bool Down = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                    SDL_CONTROLLER_BUTTON_DPAD_DOWN);
-            bool Left = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                    SDL_CONTROLLER_BUTTON_DPAD_LEFT);
-            bool Right = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                     SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
-            bool Start = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                     SDL_CONTROLLER_BUTTON_START);
-            bool Back = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                    SDL_CONTROLLER_BUTTON_BACK);
-            bool LeftShoulder = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                            SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
-            bool RightShoulder = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                             SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
-            bool AButton = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                       SDL_CONTROLLER_BUTTON_A);
-            bool BButton = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                       SDL_CONTROLLER_BUTTON_B);
-            bool XButton = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                       SDL_CONTROLLER_BUTTON_X);
-            bool YButton = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
-                                                       SDL_CONTROLLER_BUTTON_Y);
+            bool Up =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_DPAD_UP);
+            bool Down =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+            bool Left =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+            bool Right =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+            bool Start =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_START);
+            bool Back =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_BACK);
+            bool LeftShoulder =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+            bool RightShoulder =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+            bool AButton =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_A);
+            bool BButton =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_B);
+            bool XButton =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_X);
+            bool YButton =
+                SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                            SDL_CONTROLLER_BUTTON_Y);
 
-            int16 StickX = SDL_GameControllerGetAxis(ControllerHandles[ControllerIndex],
-                                                     SDL_CONTROLLER_AXIS_LEFTX);
-            int16 StickY = SDL_GameControllerGetAxis(ControllerHandles[ControllerIndex],
-                                                     SDL_CONTROLLER_AXIS_LEFTY);
+            int16 StickX =
+                SDL_GameControllerGetAxis(ControllerHandles[ControllerIndex],
+                                          SDL_CONTROLLER_AXIS_LEFTX);
+            int16 StickY =
+                SDL_GameControllerGetAxis(ControllerHandles[ControllerIndex],
+                                          SDL_CONTROLLER_AXIS_LEFTY);
 
             if (AButton)
             {
@@ -348,7 +402,9 @@ int main()
             {
               if (RumbleHandles[ControllerIndex])
               {
-                SDL_HapticRumblePlay(RumbleHandles[ControllerIndex], 0.5f, 2000);
+                SDL_HapticRumblePlay(RumbleHandles[ControllerIndex],
+                                     0.5f,
+                                     2000);
               }
             }
 
