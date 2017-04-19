@@ -7,6 +7,16 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
+option(HANDMADE_INTERNAL "Option description" 1)
+option(HANDMADE_SLOW "Option description" 1)
+
+if(HANDMADE_INTERNAL)
+    add_definitions(-DHANDMADE_INTERNAL)
+endif()
+if(HANDMADE_SLOW)
+    add_definitions(-DHANDMADE_SLOW)
+endif()
+
 set(SOURCE_FILES sdl_handmade.cpp handmade.cpp)
 add_executable(main ${SOURCE_FILES})
 

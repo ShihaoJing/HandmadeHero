@@ -33,14 +33,10 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer,
   // TODO(casey): Let's see what the optimizer does
 
   uint8 *Row = (uint8 *)Buffer->Memory;
-  for(int Y = 0;
-      Y < Buffer->Height;
-      ++Y)
+  for (int Y = 0; Y < Buffer->Height; ++Y)
   {
     uint32 *Pixel = (uint32 *)Row;
-    for(int X = 0;
-        X < Buffer->Width;
-        ++X)
+    for (int X = 0; X < Buffer->Width; ++X)
     {
       uint8 Blue = (uint8)(X + BlueOffset);
       uint8 Green = (uint8)(Y + GreenOffset);
@@ -53,18 +49,25 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer,
 }
 
 internal void
-GameUpdateAndRender(game_input* Input, game_offscreen_buffer* Buffer,
+GameUpdateAndRender(game_memory* Memory,
+                    game_input* Input, game_offscreen_buffer* Buffer,
                     game_sound_output_buffer* SoundBuffer)
 {
-  local_persist int BlueOffset = 0;
-  local_persist int GreenOffset = 0;
-  local_persist int ToneHz = 0;
+  Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
+
+  game_state* GameState = (game_state*)Memory->PermanentStorage;
+  if (!Memory->IsInitialized)
+  {
+    GameState->ToneHz = 256;
+
+    Memory->IsInitialized = true;
+  }
 
   game_controller_input* Input0 = &Input->Controllers[0];
   if(Input0->IsAnalog)
   {
-    BlueOffset += (int)4.0f * (Input0->EndX);
-    ToneHz = 256 + (int)(128.0f*(Input0->EndY));
+    GameState->BlueOffset += (int)4.0f * (Input0->EndX);
+    GameState->ToneHz = 256 + (int)(128.0f*(Input0->EndY));
   }
   else
   {
@@ -73,10 +76,10 @@ GameUpdateAndRender(game_input* Input, game_offscreen_buffer* Buffer,
 
   if(Input0->Down.EndedDown)
   {
-    GreenOffset += 1;
+    GameState->GreenOffset += 1;
   }
 
   // TODO(casey): Allow sample offsets here for more robust platform options
-  //GameOutputSound(SoundBuffer, ToneHz);
-  RenderWeirdGradient(Buffer, BlueOffset, GreenOffset);
+  GameOutputSound(SoundBuffer, GameState->ToneHz);
+  RenderWeirdGradient(Buffer, GameState->BlueOffset, GameState->GreenOffset);
 }
