@@ -5,15 +5,15 @@
 #include "handmade.h"
 
 internal void
-GameOutputSound(game_sound_output_buffer* SoundBufer, int ToneHz)
+GameOutputSound(game_sound_output_buffer* SoundBuffer, int ToneHz)
 {
   local_persist real32 tSine;
   int16 ToneVolume = 3000;
-  int WavePeriod = SoundBufer->SamplesPerSecond / ToneHz;
+  int WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
 
-  int16* SampleOut = SoundBufer->Samples;
+  int16* SampleOut = SoundBuffer->Samples;
   for (int SampleIndex = 0;
-       SampleIndex < SoundBufer->SampleCount;
+       SampleIndex < SoundBuffer->SampleCount;
        ++SampleIndex)
   {
     real32 SineValue = sinf(tSine);
@@ -53,10 +53,30 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer,
 }
 
 internal void
-GameUpdateAndRender(game_offscreen_buffer* Buffer, int BlueOffset,
-                    int GreenOffset, game_sound_output_buffer* SoundBuffer,
-                    int ToneHz)
+GameUpdateAndRender(game_input* Input, game_offscreen_buffer* Buffer,
+                    game_sound_output_buffer* SoundBuffer)
 {
-  GameOutputSound(SoundBuffer, ToneHz);
+  local_persist int BlueOffset = 0;
+  local_persist int GreenOffset = 0;
+  local_persist int ToneHz = 0;
+
+  game_controller_input* Input0 = &Input->Controllers[0];
+  if(Input0->IsAnalog)
+  {
+    BlueOffset += (int)4.0f * (Input0->EndX);
+    ToneHz = 256 + (int)(128.0f*(Input0->EndY));
+  }
+  else
+  {
+    // NOTE(casey): Use digital movement tuning
+  }
+
+  if(Input0->Down.EndedDown)
+  {
+    GreenOffset += 1;
+  }
+
+  // TODO(casey): Allow sample offsets here for more robust platform options
+  //GameOutputSound(SoundBuffer, ToneHz);
   RenderWeirdGradient(Buffer, BlueOffset, GreenOffset);
 }
