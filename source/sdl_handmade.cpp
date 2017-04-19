@@ -2,6 +2,10 @@
 #include <SDL.h>
 #include <sys/mman.h>
 #include <x86intrin.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "handmade.h"
 #include "handmade.cpp"
 #include "sdl_handmade.h"
@@ -12,6 +16,87 @@ sdl_audio_ring_buffer AudioRingBuffer;
 #define MAX_CONTROLLERS 4
 SDL_GameController* ControllerHandles[MAX_CONTROLLERS];
 SDL_Haptic* RumbleHandles[MAX_CONTROLLERS];
+
+internal debug_read_file_result
+DEBUGPlatformReadEntireFile(char* Filename)
+{
+  debug_read_file_result Result = {};
+
+  int FileHandle = open(Filename, O_RDONLY);
+  if (FileHandle == -1)
+    return Result;
+
+  struct stat FileStatus;
+  if (fstat(FileHandle, &FileStatus) == -1)
+  {
+    close(FileHandle);
+    return Result;
+  }
+  Result.ContentsSize = SafeTruncateUInt64(FileStatus.st_size);
+
+  Result.Contents = malloc(Result.ContentsSize);
+  if (!Result.Contents)
+  {
+    close(FileHandle);
+    Result.ContentsSize = 0;
+    return Result;
+  }
+
+  uint32  BytesToRead = Result.ContentsSize;
+  uint8* NextByteLocation = (uint8*)Result.Contents;
+  while (BytesToRead)
+  {
+    uint32 BytesRead = read(FileHandle, NextByteLocation, BytesToRead);
+    if (BytesRead == -1)
+    {
+      free(Result.Contents);
+      Result.Contents = 0;
+      Result.ContentsSize = 0;
+      close(FileHandle);
+      return Result;
+    }
+    BytesToRead -= BytesRead;
+    NextByteLocation += BytesRead;
+  }
+
+  close(FileHandle);
+  return Result;
+}
+
+internal void
+DEBUGPlatformFreeFileMemory(void* Memory)
+{
+  free(Memory);
+}
+
+internal bool32
+DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory)
+{
+  int FileHandle = open(Filename, O_WRONLY | O_CREAT,
+                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+
+  if (!FileHandle)
+    return false;
+
+  uint32 BytesToWrite = MemorySize;
+  uint8* NextByteLocation = (uint8*)Memory;
+  while(BytesToWrite)
+  {
+    uint32 BytesWritten = write(FileHandle, NextByteLocation, BytesToWrite);
+    if (BytesWritten == -1)
+    {
+      close(FileHandle);
+      return false;
+    }
+    BytesToWrite -= BytesWritten;
+    NextByteLocation += BytesWritten;
+  }
+
+  close(FileHandle);
+
+  return true;
+}
+
 
 internal game_state*
 CreateGameState()

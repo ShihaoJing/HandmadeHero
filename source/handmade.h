@@ -53,6 +53,36 @@ typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
 
+
+inline uint32
+SafeTruncateUInt64(uint64 Value)
+{
+  // TODO(casey): Defines for maximum values
+  Assert(Value <= 0xFFFFFFFF);
+  uint32 Result = (uint32)Value;
+  return Result;
+}
+
+/*
+ -  TODO(casey): Services that the platform layer provides to the game
+ +  NOTE(casey): Services that the platform layer provides to the game
+ +*/
+#if HANDMADE_INTERNAL
+/* IMPORTANT(casey):
+ +
+ +   These are NOT for doing anything in the shipping game - they are
+ +   blocking and the write doesn't protect against lost data!
+  */
+struct debug_read_file_result
+{
+  uint32 ContentsSize;
+  void* Contents;
+};
+internal debug_read_file_result DEBUGPlatformReadEntireFile(char *Filename);
+internal void DEBUGPlatformFreeFileMemory(void* Memory);
+internal bool32 DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory);
+#endif
+
 struct game_memory
 {
   bool32 IsInitialized;
