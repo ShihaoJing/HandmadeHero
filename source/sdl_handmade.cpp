@@ -558,7 +558,7 @@ int main()
                                                 SDL_RENDERER_PRESENTVSYNC);
 
     printf("Refresh rate is %d Hz\n", SDLGetWindowRefreshRate(Window));
-    const int GameUpdateHz = 30;
+    const int GameUpdateHz = 60;
     real32 TargetSecondsPerFrame = 1.0f / (real32)GameUpdateHz;
     if (Renderer)
     {

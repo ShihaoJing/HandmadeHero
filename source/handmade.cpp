@@ -101,6 +101,10 @@ GameUpdateAndRender(game_memory* Memory,
     {
       GameState->GreenOffset += 1;
     }
+    if (Controller->ActionUp.EndedDown)
+    {
+      GameState->GreenOffset -= 1;
+    }
   }
 
   // TODO(casey): Allow sample offsets here for more robust platform options
