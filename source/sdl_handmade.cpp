@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <SDL_video.h>
 #include "handmade.h"
 #include "handmade.cpp"
 #include "sdl_handmade.h"
@@ -16,6 +17,31 @@ sdl_audio_ring_buffer AudioRingBuffer;
 #define MAX_CONTROLLERS 4
 SDL_GameController* ControllerHandles[MAX_CONTROLLERS];
 SDL_Haptic* RumbleHandles[MAX_CONTROLLERS];
+
+internal real32
+SDLGetSecondsElapsed(uint64 OldCounter, uint64 CurrentCounter)
+{
+  return ((real32)(CurrentCounter - OldCounter) / (real32)(SDL_GetPerformanceFrequency()));
+}
+
+internal int
+SDLGetWindowRefreshRate(SDL_Window* Window)
+{
+  SDL_DisplayMode Mode;
+  int DisplayIndex = SDL_GetWindowDisplayIndex(Window);
+  // If We can't find the refresh rate, we'll return this;
+  int DefaultRefreshRate = 60;
+  if (SDL_GetDesktopDisplayMode(DisplayIndex, &Mode) != 0)
+  {
+    return DefaultRefreshRate;
+  }
+  if (Mode.refresh_rate == 0)
+  {
+    return DefaultRefreshRate;
+  }
+
+  return Mode.refresh_rate;
+}
 
 internal void
 SDLProcessGameControllerButton(game_button_state* OldState,
@@ -477,7 +503,11 @@ int main()
     // Create a "Renderer" for our Window
     SDL_Renderer* Renderer = SDL_CreateRenderer(Window,
                                                 -1,
-                                                0);
+                                                SDL_RENDERER_PRESENTVSYNC);
+
+    printf("Refresh rate is %d Hz\n", SDLGetWindowRefreshRate(Window));
+    int GameUpdateHz = 30;
+    real32 TargetSecondsPerFrame = 1.0f / (real32)GameUpdateHz;
     if (Renderer)
     {
       bool Running = true;
@@ -498,7 +528,7 @@ int main()
       SoundOutput.BytesPerSample = sizeof(int16) * 2;
       SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond
           * SoundOutput.BytesPerSample;
-      SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 30;
+      SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
       // Open our audio device:
       SDLInitAudio(48000, SoundOutput.SecondaryBufferSize);
       int16* Samples = (int16*)calloc(SoundOutput.SamplesPerSecond,
@@ -714,11 +744,25 @@ int main()
 
         SDLFillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
 
+        if (SDLGetSecondsElapsed(LastCounter, SDL_GetPerformanceCounter()) < TargetSecondsPerFrame)
+        {
+          int32 TimeToSleep = ((TargetSecondsPerFrame - SDLGetSecondsElapsed(LastCounter, SDL_GetPerformanceCounter())) * 1000) - 1;
+          if (TimeToSleep > 0)
+          {
+            SDL_Delay(TimeToSleep);
+          }
+          //Assert(SDLGetSecondsElapsed(LastCounter, SDL_GetPerformanceCounter()) < TargetSecondsPerFrame);
+          while (SDLGetSecondsElapsed(LastCounter, SDL_GetPerformanceCounter()) < TargetSecondsPerFrame)
+          {
+            //waiting
+          }
+        }
+        uint64 EndCounter = SDL_GetPerformanceCounter();
+
         SDLUpdateWindow(Window, Renderer, &GlobalBackBuffer);
 
         //Count Performance
         uint64 EndCycleCount = _rdtsc();
-        uint64 EndCounter = SDL_GetPerformanceCounter();
         uint64 CounterElapsed = EndCounter - LastCounter;
         uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
 
