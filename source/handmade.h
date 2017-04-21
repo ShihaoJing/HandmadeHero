@@ -79,7 +79,7 @@ struct debug_read_file_result
   void* Contents;
 };
 internal debug_read_file_result DEBUGPlatformReadEntireFile(char *Filename);
-internal void DEBUGPlatformFreeFileMemory(void* Memory);
+internal void DEBUGPlatformFreeFileMemory(void *Memory);
 internal bool32 DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory);
 #endif
 
@@ -88,9 +88,9 @@ struct game_memory
   bool32 IsInitialized;
 
   uint64 PermanentStorageSize;
-  void* PermanentStorage;
+  void *PermanentStorage;
   uint64 TransientStorageSize;
-  void* TransientStorage;
+  void *TransientStorage;
 };
 
 struct game_offscreen_buffer
@@ -171,8 +171,8 @@ inline game_controller_input* GetController(game_input *Input, int unsigned Cont
 
 
 internal void
-GameUpdateAndRender(game_memory* Memory, game_input* Input,
-                    game_offscreen_buffer* Buffer,
-                    game_sound_output_buffer* SoundBuffer);
+GameUpdateAndRender(game_memory *Memory, game_input *Input,
+                    game_offscreen_buffer *Buffer,
+                    game_sound_output_buffer *SoundBuffer);
 
 #endif //HANDMADE_H

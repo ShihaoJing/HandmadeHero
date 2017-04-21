@@ -15,8 +15,8 @@ global_variable sdl_offscreen_buffer GlobalBackbuffer;
 sdl_audio_ring_buffer AudioRingBuffer;
 
 #define MAX_CONTROLLERS 4
-SDL_GameController* ControllerHandles[MAX_CONTROLLERS];
-SDL_Haptic* RumbleHandles[MAX_CONTROLLERS];
+SDL_GameController *ControllerHandles[MAX_CONTROLLERS];
+SDL_Haptic *RumbleHandles[MAX_CONTROLLERS];
 
 internal real32
 SDLGetSecondsElapsed(uint64 OldCounter, uint64 CurrentCounter)
@@ -25,7 +25,7 @@ SDLGetSecondsElapsed(uint64 OldCounter, uint64 CurrentCounter)
 }
 
 internal int
-SDLGetWindowRefreshRate(SDL_Window* Window)
+SDLGetWindowRefreshRate(SDL_Window *Window)
 {
   SDL_DisplayMode Mode;
   int DisplayIndex = SDL_GetWindowDisplayIndex(Window);
@@ -44,8 +44,8 @@ SDLGetWindowRefreshRate(SDL_Window* Window)
 }
 
 internal void
-SDLProcessGameControllerButton(game_button_state* OldState,
-                               game_button_state* NewState,
+SDLProcessGameControllerButton(game_button_state *OldState,
+                               game_button_state *NewState,
                                bool Value)
 {
   NewState->EndedDown = Value;
@@ -70,7 +70,7 @@ SDLProcessGameControllerAxisValue(int16 Value, int16 DeadZoneThreshold)
 }
 
 internal debug_read_file_result
-DEBUGPlatformReadEntireFile(char* Filename)
+DEBUGPlatformReadEntireFile(char *Filename)
 {
   debug_read_file_result Result = {};
 
@@ -95,7 +95,7 @@ DEBUGPlatformReadEntireFile(char* Filename)
   }
 
   uint32  BytesToRead = Result.ContentsSize;
-  uint8* NextByteLocation = (uint8*)Result.Contents;
+  uint8 *NextByteLocation = (uint8*)Result.Contents;
   while (BytesToRead)
   {
     ssize_t BytesRead = read(FileHandle, NextByteLocation, BytesToRead);
@@ -116,7 +116,7 @@ DEBUGPlatformReadEntireFile(char* Filename)
 }
 
 internal void
-DEBUGPlatformFreeFileMemory(void* Memory)
+DEBUGPlatformFreeFileMemory(void *Memory)
 {
   free(Memory);
 }
@@ -131,7 +131,7 @@ DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory)
     return false;
 
   uint32 BytesToWrite = MemorySize;
-  uint8* NextByteLocation = (uint8*)Memory;
+  uint8 *NextByteLocation = (uint8*)Memory;
   while(BytesToWrite)
   {
     ssize_t BytesWritten = write(FileHandle, NextByteLocation, BytesToWrite);
@@ -153,7 +153,7 @@ DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory)
 internal game_state*
 CreateGameState()
 {
-  game_state* State = new game_state;
+  game_state *State = new game_state;
   if (State)
   {
     State->BlueOffset = 0;
@@ -164,7 +164,7 @@ CreateGameState()
 }
 
 internal void
-SDLResizeTexture(sdl_offscreen_buffer* Buffer,
+SDLResizeTexture(sdl_offscreen_buffer *Buffer,
                  SDL_Renderer *Renderer,
                  int Width,
                  int Height)
@@ -198,7 +198,7 @@ SDLResizeTexture(sdl_offscreen_buffer* Buffer,
 }
 
 sdl_Window_dimension
-SDLGetWindowDimension(SDL_Window* Window)
+SDLGetWindowDimension(SDL_Window *Window)
 {
   sdl_Window_dimension Result;
   SDL_GetWindowSize(Window, &Result.Width, &Result.Height);
@@ -207,8 +207,8 @@ SDLGetWindowDimension(SDL_Window* Window)
 }
 
 internal void
-SDLUpdateWindow(SDL_Window* Window,
-                SDL_Renderer* Renderer, sdl_offscreen_buffer* Buffer)
+SDLUpdateWindow(SDL_Window *Window,
+                SDL_Renderer* Renderer, sdl_offscreen_buffer *Buffer)
 {
   SDL_UpdateTexture(Buffer->Texture,
                     0,
@@ -219,10 +219,10 @@ SDLUpdateWindow(SDL_Window* Window,
 }
 
 internal void
-SDLDebugDrawVertical(sdl_offscreen_buffer* GlobalBackbuffer,
+SDLDebugDrawVertical(sdl_offscreen_buffer *GlobalBackbuffer,
                      int X, int Top, int Bottom, uint32 Color)
 {
-  uint8* Pixel = ((uint8*)GlobalBackbuffer->Memory +
+  uint8 *Pixel = ((uint8*)GlobalBackbuffer->Memory +
       X*GlobalBackbuffer->BytesPerPixel +
       Top*GlobalBackbuffer->Pitch);
   for(int Y = Top;
@@ -235,8 +235,8 @@ SDLDebugDrawVertical(sdl_offscreen_buffer* GlobalBackbuffer,
 }
 
 internal void
-SDLDrawSoundBufferMarker(sdl_offscreen_buffer* Backbuffer,
-                         sdl_sound_output* SoundOutput,
+SDLDrawSoundBufferMarker(sdl_offscreen_buffer *Backbuffer,
+                         sdl_sound_output *SoundOutput,
                          real32 C, int PadX, int Top, int Bottom,
                          int Value, uint32 Color)
 {
@@ -247,9 +247,9 @@ SDLDrawSoundBufferMarker(sdl_offscreen_buffer* Backbuffer,
 }
 
 internal void
-SDLDebugSyncDisplay(sdl_offscreen_buffer* Backbuffer,
-                    int MarkerCount, sdl_debug_time_marker* Markers,
-                    sdl_sound_output* SoundOutput, real32 TargetSecondsPerFrame)
+SDLDebugSyncDisplay(sdl_offscreen_buffer *Backbuffer,
+                    int MarkerCount, sdl_debug_time_marker *Markers,
+                    sdl_sound_output *SoundOutput, real32 TargetSecondsPerFrame)
 {
   int PadX = 16;
   int PadY = 16;
@@ -310,9 +310,9 @@ SDLCloseGameControllers()
 
 //TODO: Instead, use SDL_QueueAudio() function
 internal void
-SDLAudioCallback(void* UserData, Uint8* AudioData, int Length)
+SDLAudioCallback(void *UserData, Uint8 *AudioData, int Length)
 {
-  sdl_audio_ring_buffer* RingBuffer = (sdl_audio_ring_buffer*)UserData;
+  sdl_audio_ring_buffer *RingBuffer = (sdl_audio_ring_buffer*)UserData;
 
   int Region1Size = Length;
   int Region2Size = 0;
@@ -362,22 +362,22 @@ SDLInitAudio(int32 SamplesPerSecond, int32 BufferSize)
 
 
 internal void
-SDLFillSoundBuffer(sdl_sound_output* SoundOutput,
+SDLFillSoundBuffer(sdl_sound_output *SoundOutput,
                    int ByteToLock,
                    int BytesToWrite,
-                   game_sound_output_buffer* SoundBuffer)
+                   game_sound_output_buffer *SoundBuffer)
 {
-  int16* Samples = SoundBuffer->Samples;
-  void* Region1 = (uint8*)AudioRingBuffer.Data + ByteToLock;
+  int16 *Samples = SoundBuffer->Samples;
+  void *Region1 = (uint8*)AudioRingBuffer.Data + ByteToLock;
   int Region1Size = BytesToWrite;
   if (Region1Size + ByteToLock > SoundOutput->SecondaryBufferSize)
   {
     Region1Size = SoundOutput->SecondaryBufferSize - ByteToLock;
   }
-  void* Region2 = AudioRingBuffer.Data;
+  void *Region2 = AudioRingBuffer.Data;
   int Region2Size = BytesToWrite - Region1Size;
   int Region1SampleCount = Region1Size/SoundOutput->BytesPerSample;
-  int16* SampleOut = (int16*)Region1;
+  int16 *SampleOut = (int16*)Region1;
   for(int SampleIndex = 0;
       SampleIndex < Region1SampleCount;
       ++SampleIndex)
@@ -390,7 +390,7 @@ SDLFillSoundBuffer(sdl_sound_output* SoundOutput,
   }
 
   int Region2SampleCount = Region2Size/SoundOutput->BytesPerSample;
-  SampleOut = (int16 *)Region2;
+  SampleOut = (int16*)Region2;
   for(int SampleIndex = 0;
       SampleIndex < Region2SampleCount;
       ++SampleIndex)
@@ -404,14 +404,14 @@ SDLFillSoundBuffer(sdl_sound_output* SoundOutput,
 }
 
 internal void
-SDLProcessKeyPress(game_button_state* NewState, bool32 IsDown)
+SDLProcessKeyPress(game_button_state *NewState, bool32 IsDown)
 {
   Assert(NewState->EndedDown != IsDown);
   NewState->EndedDown = IsDown;
   ++NewState->HalfTransitionCount;
 }
 
-bool HandleEvent(SDL_Event* Event, game_controller_input *NewKeyboardController)
+bool HandleEvent(SDL_Event *Event, game_controller_input *NewKeyboardController)
 {
   bool ShouldQuit = false;
   switch (Event->type)
@@ -571,8 +571,8 @@ int main()
       int YOffset = 0;
 
       game_input Input[2] = {};
-      game_input* NewInput = &Input[0];
-      game_input* OldInput = &Input[1];
+      game_input *NewInput = &Input[0];
+      game_input *OldInput = &Input[1];
 
       sdl_sound_output SoundOutput = {};
       SoundOutput.SamplesPerSecond = 48000;
@@ -588,9 +588,9 @@ int main()
       SDL_PauseAudio(0);
 
 #if HANDMADE_INTERNAL
-      void* BaseAddress = (void*)Terabytes(2);
+      void *BaseAddress = (void*)Terabytes(2);
 #else
-      void* BaseAddress = (void*)Terabytes(0);
+      void *BaseAddress = (void*)Terabytes(0);
 #endif
 
       game_memory GameMemory = {};
@@ -615,8 +615,8 @@ int main()
       uint64 LastCycleCount = _rdtsc();
       while (Running)
       {
-        game_controller_input* OldKeyboardController = &OldInput->Controllers[0];
-        game_controller_input* NewKeyboardController = &NewInput->Controllers[0];
+        game_controller_input *OldKeyboardController = &OldInput->Controllers[0];
+        game_controller_input *NewKeyboardController = &NewInput->Controllers[0];
         *NewKeyboardController = {};
         for(int ButtonIndex = 0;
             ButtonIndex < ArrayCount(NewKeyboardController->Buttons);
@@ -644,8 +644,8 @@ int main()
                   ControllerHandles[ControllerIndex]))
           {
             // NOTE: We have a controller with index ControllerIndex.
-            game_controller_input* OldController = GetController(OldInput,ControllerIndex+1);
-            game_controller_input* NewController = GetController(NewInput,ControllerIndex+1);
+            game_controller_input *OldController = GetController(OldInput,ControllerIndex+1);
+            game_controller_input *NewController = GetController(NewInput,ControllerIndex+1);
 
             NewController->IsConnected = true;
 
@@ -793,7 +793,7 @@ int main()
         Buffer.Pitch = GlobalBackbuffer.Pitch;
         GameUpdateAndRender(&GameMemory, NewInput, &Buffer, &SoundBuffer);
 
-        game_input* Temp = NewInput;
+        game_input *Temp = NewInput;
         NewInput = OldInput;
         OldInput = Temp;
 

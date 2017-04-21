@@ -5,13 +5,13 @@
 #include "handmade.h"
 
 internal void
-GameOutputSound(game_sound_output_buffer* SoundBuffer, int ToneHz)
+GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz)
 {
   local_persist real32 tSine;
   int16 ToneVolume = 3000;
   int WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
 
-  int16* SampleOut = SoundBuffer->Samples;
+  int16 *SampleOut = SoundBuffer->Samples;
   for (int SampleIndex = 0;
        SampleIndex < SoundBuffer->SampleCount;
        ++SampleIndex)
@@ -49,8 +49,8 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer,
 }
 
 internal void
-GameUpdateAndRender(game_memory* Memory,
-                    game_input* Input, game_offscreen_buffer* Buffer,
+GameUpdateAndRender(game_memory *Memory,
+                    game_input *Input, game_offscreen_buffer *Buffer,
                     game_sound_output_buffer* SoundBuffer)
 {
   Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
@@ -58,7 +58,7 @@ GameUpdateAndRender(game_memory* Memory,
 
   Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
 
-  game_state* GameState = (game_state*)Memory->PermanentStorage;
+  game_state *GameState = (game_state*)Memory->PermanentStorage;
   if (!Memory->IsInitialized)
   {
     char* Filename = __FILE__;
@@ -79,7 +79,7 @@ GameUpdateAndRender(game_memory* Memory,
        ControllerIndex < ArrayCount(Input->Controllers);
        ++ControllerIndex)
   {
-    game_controller_input* Controller = GetController(Input, ControllerIndex);
+    game_controller_input *Controller = GetController(Input, ControllerIndex);
     if (Controller->IsAnalog)
     {
       GameState->BlueOffset += (int)(4.0f * Controller->StickAverageX);
