@@ -58,6 +58,8 @@ struct sdl_sound_output{
   int WavePeriod;
   int BytesPerSample;
   int SecondaryBufferSize;
+  real32 tSine;
+  int LatencySampleCount;
 };
 
 
@@ -85,34 +87,35 @@ void SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int ByteToLock, int Bytes
   int Region1Size = BytesToWrite;
   if (Region1Size + ByteToLock > SoundOutput->SecondaryBufferSize)
     Region1Size = SoundOutput->SecondaryBufferSize - ByteToLock;
+
   void *Region2 = AudioRingBuffer.Data;
   int Region2Size = BytesToWrite - Region1Size;
+
   int Region1SampleCount = Region1Size/SoundOutput->BytesPerSample;
   int16 *SampleOut = (int16 *)Region1;
-  for(int SampleIndex = 0;
-      SampleIndex < Region1SampleCount;
+  for(int SampleIndex = 0; SampleIndex < Region1SampleCount;
       ++SampleIndex)
   {
-    real32 t = 2.0f * Pi32 * (real32)SoundOutput->RunningSampleIndex / (real32)SoundOutput->WavePeriod;
-    real32 SineValue = sinf(t);
+    real32 SineValue = sinf(SoundOutput->tSine);
     int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
     *SampleOut++ = SampleValue;
     *SampleOut++ = SampleValue;
 
+    SoundOutput->tSine += 2.0f * Pi32 * 1.0f / (real32)SoundOutput->WavePeriod;
     ++SoundOutput->RunningSampleIndex;
   }
 
   int Region2SampleCount = Region2Size/SoundOutput->BytesPerSample;
   SampleOut = (int16 *)Region2;
-  for(int SampleIndex = 0;
-      SampleIndex < Region2SampleCount;
+  for(int SampleIndex = 0; SampleIndex < Region2SampleCount;
       ++SampleIndex)
   {
-    real32 t = 2.0f * Pi32 * (real32)SoundOutput->RunningSampleIndex / (real32)SoundOutput->WavePeriod;
-    real32 SineValue = sinf(t);
+    real32 SineValue = sinf(SoundOutput->tSine);
     int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
     *SampleOut++ = SampleValue;
     *SampleOut++ = SampleValue;
+
+    SoundOutput->tSine += 2.0f * Pi32 * 1.0f / (real32)SoundOutput->WavePeriod;
     ++SoundOutput->RunningSampleIndex;
   }
 }
@@ -438,11 +441,14 @@ int main(int argc, char *argv[])
       SoundOutput.RunningSampleIndex = 0;
       SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
       SoundOutput.BytesPerSample = sizeof(int16) * 2;
-      SoundOutput.SecondaryBufferSize =SoundOutput. SamplesPerSecond * SoundOutput.BytesPerSample;
+      SoundOutput.SecondaryBufferSize = SoundOutput. SamplesPerSecond * SoundOutput.BytesPerSample;
+      SoundOutput.tSine = 0.0f;
+      SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
       // Open our audio device:
       SDLInitAudio(48000, SoundOutput.SecondaryBufferSize);
+      SDLFillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample);
 
-      bool SoundIsPlaying = false;
+      SDL_PauseAudio(0);
 
       while(Running)
       {
@@ -503,33 +509,21 @@ int main(int argc, char *argv[])
         // Sound output test
         SDL_LockAudio();
         int ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
-        int BytesToWrite;
-        //TODO: We need a more accurate check than ByteToLock == PlayCursor
-        if(ByteToLock == AudioRingBuffer.PlayCursor)
-        {
-          if(SoundIsPlaying)
-            BytesToWrite = 0;
-          else
-            BytesToWrite = SoundOutput.SecondaryBufferSize;
-        }
-        else if(ByteToLock > AudioRingBuffer.PlayCursor)
+        int TargetCursor = ((AudioRingBuffer.PlayCursor +
+            (SoundOutput.LatencySampleCount*SoundOutput.BytesPerSample)) %
+            SoundOutput.SecondaryBufferSize);
+        int BytesToWrite = 0;
+        if(ByteToLock > TargetCursor)
         {
           BytesToWrite = (SoundOutput.SecondaryBufferSize - ByteToLock);
-          BytesToWrite += AudioRingBuffer.PlayCursor;
+          BytesToWrite += TargetCursor;
         }
         else
         {
-          BytesToWrite = AudioRingBuffer.PlayCursor - ByteToLock;
+          BytesToWrite = TargetCursor - ByteToLock;
         }
         SDL_UnlockAudio();
-
         SDLFillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite);
-
-        if(!SoundIsPlaying)
-        {
-          SDL_PauseAudio(0);
-          SoundIsPlaying = true;
-        }
 
         SDLUpdateWindow(Window, Renderer, &GlobalBackbuffer);
 
