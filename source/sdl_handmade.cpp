@@ -11,18 +11,14 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <stdint.h>
+#include <math.h>
 
-// NOTE: MAP_ANONYMOUS is not defined on Mac OS X and some other UNIX systems.
-// On the vast majority of those systems, one can use MAP_ANON instead.
-// Huge thanks to Adam Rosenfield for investigating this, and suggesting this
-// workaround:
-#ifndef MAP_ANONYMOUS
-#define MAP_ANONYMOUS MAP_ANON
-#endif
 
 #define internal static
 #define local_persist static
 #define global_variable static
+
+#define Pi32 3.141592653579f
 
 typedef int8_t int8;
 typedef int16_t int16;
@@ -33,6 +29,10 @@ typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
 typedef uint64_t uint64;
+
+typedef float real32;
+typedef double real64;
+
 
 struct sdl_offscreen_buffer
 {
@@ -50,6 +50,17 @@ struct sdl_window_dimension
   int Height;
 };
 
+struct sdl_sound_output{
+  int SamplesPerSecond;
+  int ToneHz;
+  int16 ToneVolume;
+  uint32 RunningSampleIndex;
+  int WavePeriod;
+  int BytesPerSample;
+  int SecondaryBufferSize;
+};
+
+
 global_variable sdl_offscreen_buffer GlobalBackbuffer;
 
 #define MAX_CONTROLLERS 4
@@ -66,6 +77,46 @@ struct sdl_audio_ring_buffer
 
 sdl_audio_ring_buffer AudioRingBuffer;
 
+void SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int ByteToLock, int BytesToWrite)
+{
+  // TODO: More strenuous test!
+  // TODO: Switch to a sine wave
+  void *Region1 = (uint8*)AudioRingBuffer.Data + ByteToLock;
+  int Region1Size = BytesToWrite;
+  if (Region1Size + ByteToLock > SoundOutput->SecondaryBufferSize)
+    Region1Size = SoundOutput->SecondaryBufferSize - ByteToLock;
+  void *Region2 = AudioRingBuffer.Data;
+  int Region2Size = BytesToWrite - Region1Size;
+  int Region1SampleCount = Region1Size/SoundOutput->BytesPerSample;
+  int16 *SampleOut = (int16 *)Region1;
+  for(int SampleIndex = 0;
+      SampleIndex < Region1SampleCount;
+      ++SampleIndex)
+  {
+    real32 t = 2.0f * Pi32 * (real32)SoundOutput->RunningSampleIndex / (real32)SoundOutput->WavePeriod;
+    real32 SineValue = sinf(t);
+    int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
+    *SampleOut++ = SampleValue;
+    *SampleOut++ = SampleValue;
+
+    ++SoundOutput->RunningSampleIndex;
+  }
+
+  int Region2SampleCount = Region2Size/SoundOutput->BytesPerSample;
+  SampleOut = (int16 *)Region2;
+  for(int SampleIndex = 0;
+      SampleIndex < Region2SampleCount;
+      ++SampleIndex)
+  {
+    real32 t = 2.0f * Pi32 * (real32)SoundOutput->RunningSampleIndex / (real32)SoundOutput->WavePeriod;
+    real32 SineValue = sinf(t);
+    int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
+    *SampleOut++ = SampleValue;
+    *SampleOut++ = SampleValue;
+    ++SoundOutput->RunningSampleIndex;
+  }
+}
+
 internal void
 SDLAudioCallback(void *UserData, Uint8 *AudioData, int Length)
 {
@@ -81,7 +132,7 @@ SDLAudioCallback(void *UserData, Uint8 *AudioData, int Length)
   memcpy(AudioData, (uint8*)(RingBuffer->Data) + RingBuffer->PlayCursor, Region1Size);
   memcpy(&AudioData[Region1Size], RingBuffer->Data, Region2Size);
   RingBuffer->PlayCursor = (RingBuffer->PlayCursor + Length) % RingBuffer->Size;
-  RingBuffer->WriteCursor = (RingBuffer->PlayCursor + 2048) % RingBuffer->Size;
+  //RingBuffer->WriteCursor = (RingBuffer->PlayCursor + 2048) % RingBuffer->Size;
 }
 
 internal void
@@ -380,16 +431,17 @@ int main(int argc, char *argv[])
 
 
       // NOTE: Sound test
-      int SamplesPerSecond = 48000;
-      int ToneHz = 256;
-      int16 ToneVolume = 3000;
-      uint32 RunningSampleIndex = 0;
-      int SquareWavePeriod = SamplesPerSecond / ToneHz;
-      int HalfSquareWavePeriod = SquareWavePeriod / 2;
-      int BytesPerSample = sizeof(int16) * 2;
-      int SecondaryBufferSize = SamplesPerSecond * BytesPerSample;
+      sdl_sound_output SoundOutput = {};
+      SoundOutput.SamplesPerSecond = 48000;
+      SoundOutput.ToneHz = 256;
+      SoundOutput.ToneVolume = 3000;
+      SoundOutput.RunningSampleIndex = 0;
+      SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
+      SoundOutput.BytesPerSample = sizeof(int16) * 2;
+      SoundOutput.SecondaryBufferSize =SoundOutput. SamplesPerSecond * SoundOutput.BytesPerSample;
       // Open our audio device:
-      SDLInitAudio(48000, SecondaryBufferSize);
+      SDLInitAudio(48000, SoundOutput.SecondaryBufferSize);
+
       bool SoundIsPlaying = false;
 
       while(Running)
@@ -450,52 +502,28 @@ int main(int argc, char *argv[])
 
         // Sound output test
         SDL_LockAudio();
-        int ByteToLock = RunningSampleIndex * BytesPerSample % SecondaryBufferSize;
+        int ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
         int BytesToWrite;
+        //TODO: We need a more accurate check than ByteToLock == PlayCursor
         if(ByteToLock == AudioRingBuffer.PlayCursor)
         {
-          BytesToWrite = SecondaryBufferSize;
+          if(SoundIsPlaying)
+            BytesToWrite = 0;
+          else
+            BytesToWrite = SoundOutput.SecondaryBufferSize;
         }
         else if(ByteToLock > AudioRingBuffer.PlayCursor)
         {
-          BytesToWrite = (SecondaryBufferSize - ByteToLock);
+          BytesToWrite = (SoundOutput.SecondaryBufferSize - ByteToLock);
           BytesToWrite += AudioRingBuffer.PlayCursor;
         }
         else
         {
           BytesToWrite = AudioRingBuffer.PlayCursor - ByteToLock;
         }
-
-        // TODO(casey): More strenuous test!
-        // TODO(casey): Switch to a sine wave
-        void *Region1 = (uint8*)AudioRingBuffer.Data + ByteToLock;
-        int Region1Size = BytesToWrite;
-        if (Region1Size + ByteToLock > SecondaryBufferSize) Region1Size = SecondaryBufferSize - ByteToLock;
-        void *Region2 = AudioRingBuffer.Data;
-        int Region2Size = BytesToWrite - Region1Size;
         SDL_UnlockAudio();
-        int Region1SampleCount = Region1Size/BytesPerSample;
-        int16 *SampleOut = (int16 *)Region1;
-        for(int SampleIndex = 0;
-            SampleIndex < Region1SampleCount;
-            ++SampleIndex)
-        {
-          int16 SampleValue = ((RunningSampleIndex++ / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
-          *SampleOut++ = SampleValue;
-          *SampleOut++ = SampleValue;
-        }
 
-        int Region2SampleCount = Region2Size/BytesPerSample;
-        SampleOut = (int16 *)Region2;
-        for(int SampleIndex = 0;
-            SampleIndex < Region2SampleCount;
-            ++SampleIndex)
-        {
-          int16 SampleValue = ((RunningSampleIndex++ / HalfSquareWavePeriod) % 2) ? ToneVolume : -ToneVolume;
-          *SampleOut++ = SampleValue;
-          *SampleOut++ = SampleValue;
-        }
-
+        SDLFillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite);
 
         if(!SoundIsPlaying)
         {
