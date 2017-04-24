@@ -30,7 +30,6 @@
 #include <math.h>
 #include <x86intrin.h>
 
-
 #define internal static
 #define local_persist static
 #define global_variable static
@@ -50,10 +49,12 @@ typedef uint64_t uint64;
 typedef float real32;
 typedef double real64;
 
+#include "handmade.cpp"
+
 
 struct sdl_offscreen_buffer
 {
-  // NOTE(casey): Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
+  // NOTE: Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
   SDL_Texture *Texture;
   void *Memory;
   int Width;
@@ -99,7 +100,6 @@ sdl_audio_ring_buffer AudioRingBuffer;
 void SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int ByteToLock, int BytesToWrite)
 {
   // TODO: More strenuous test!
-  // TODO: Switch to a sine wave
   void *Region1 = (uint8*)AudioRingBuffer.Data + ByteToLock;
   int Region1Size = BytesToWrite;
   if (Region1Size + ByteToLock > SoundOutput->SecondaryBufferSize)
@@ -192,30 +192,6 @@ SDLGetWindowDimension(SDL_Window *Window)
   SDL_GetWindowSize(Window, &Result.Width, &Result.Height);
 
   return(Result);
-}
-
-
-internal void
-RenderWeirdGradient(sdl_offscreen_buffer *Buffer, int BlueOffset, int GreenOffset)
-{
-  uint8 *Row = (uint8 *)Buffer->Memory;
-  for(int Y = 0;
-      Y < Buffer->Height;
-      ++Y)
-  {
-    uint32 *Pixel = (uint32 *)Row;
-    for(int X = 0;
-        X < Buffer->Width;
-        ++X)
-    {
-      uint8 Blue = (X + BlueOffset);
-      uint8 Green = (Y + GreenOffset);
-
-      *Pixel++ = ((Green << 8) | Blue);
-    }
-
-    Row += Buffer->Pitch;
-  }
 }
 
 internal void
@@ -523,8 +499,12 @@ int main(int argc, char *argv[])
           }
         }
 
-
-        RenderWeirdGradient(&GlobalBackbuffer, XOffset, YOffset);
+        game_offscreen_buffer Buffer = {};
+        Buffer.Memory = GlobalBackbuffer.Memory;
+        Buffer.Width = GlobalBackbuffer.Width;
+        Buffer.Height = GlobalBackbuffer.Height;
+        Buffer.Pitch = GlobalBackbuffer.Pitch;
+        GameUpdateAndRender(&Buffer);
 
         // Sound output test
         SDL_LockAudio();
