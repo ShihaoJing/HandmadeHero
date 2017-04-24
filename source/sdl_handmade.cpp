@@ -1,11 +1,27 @@
-// vim: set ts=4 sw=4 expandtab: 
 /* ========================================================================
    $File: $
    $Date: $
    $Revision: $
-   $Creator: Casey Muratori $
-   $Notice: (C) Copyright 2014 by Molly Rocket, Inc. All Rights Reserved. $
+   $Creator: Shihao Jing $
    ======================================================================== */
+
+/*
+ * TODO: THIS NOT A FINAL PLATFORM LAYER!!!
+ * - Saved game locations
+ * - Getting a handle to our own executable file
+ * - Asset loading path
+ * - Threading (launch a thread)
+ * - Raw Input (support for multiple keyboards
+ * - Sleep/timeBeginPeriod
+ * - ClipCursor() (for multimonitor support)
+ * - Fullscreen support
+ * - Control cursor visibility
+ * - QueryCancelAutoplay
+ * - Hardware acceleration
+ * - GetKeyboardLayout
+ *
+ * Just a partial list of stuff!
+ */
 
 #include <SDL.h>
 #include <stdio.h>
@@ -19,7 +35,7 @@
 #define local_persist static
 #define global_variable static
 
-#define Pi32 3.141592653579f
+#define Pi32 3.14159265357f
 
 typedef int8_t int8;
 typedef int16_t int16;
