@@ -51,7 +51,6 @@ typedef double real64;
 
 #include "handmade.cpp"
 
-
 struct sdl_offscreen_buffer
 {
   // NOTE: Pixels are alwasy 32-bits wide, Memory Order BB GG RR XX
@@ -97,8 +96,10 @@ struct sdl_audio_ring_buffer
 
 sdl_audio_ring_buffer AudioRingBuffer;
 
-void SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int ByteToLock, int BytesToWrite)
+void SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int ByteToLock, int BytesToWrite,
+                        game_sound_output_buffer *SoundBuffer)
 {
+  int16_t *Samples = SoundBuffer->Samples;
   // TODO: More strenuous test!
   void *Region1 = (uint8*)AudioRingBuffer.Data + ByteToLock;
   int Region1Size = BytesToWrite;
@@ -113,12 +114,9 @@ void SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int ByteToLock, int Bytes
   for(int SampleIndex = 0; SampleIndex < Region1SampleCount;
       ++SampleIndex)
   {
-    real32 SineValue = sinf(SoundOutput->tSine);
-    int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
-    *SampleOut++ = SampleValue;
-    *SampleOut++ = SampleValue;
+    *SampleOut++ = *Samples++;
+    *SampleOut++ = *Samples++;
 
-    SoundOutput->tSine += 2.0f * Pi32 * 1.0f / (real32)SoundOutput->WavePeriod;
     ++SoundOutput->RunningSampleIndex;
   }
 
@@ -127,12 +125,9 @@ void SDLFillSoundBuffer(sdl_sound_output *SoundOutput, int ByteToLock, int Bytes
   for(int SampleIndex = 0; SampleIndex < Region2SampleCount;
       ++SampleIndex)
   {
-    real32 SineValue = sinf(SoundOutput->tSine);
-    int16 SampleValue = (int16)(SineValue * SoundOutput->ToneVolume);
-    *SampleOut++ = SampleValue;
-    *SampleOut++ = SampleValue;
+    *SampleOut++ = *Samples++;
+    *SampleOut++ = *Samples++;
 
-    SoundOutput->tSine += 2.0f * Pi32 * 1.0f / (real32)SoundOutput->WavePeriod;
     ++SoundOutput->RunningSampleIndex;
   }
 }
@@ -168,7 +163,7 @@ SDLInitAudio(int32 SamplesPerSecond, int32 BufferSize)
   AudioSettings.userdata = &AudioRingBuffer;
 
   AudioRingBuffer.Size = BufferSize;
-  AudioRingBuffer.Data = malloc(BufferSize);
+  AudioRingBuffer.Data = calloc(BufferSize, 1);
   AudioRingBuffer.PlayCursor = AudioRingBuffer.WriteCursor = 0;
 
   SDL_OpenAudio(&AudioSettings, 0);
@@ -440,7 +435,7 @@ int main(int argc, char *argv[])
       SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
       // Open our audio device:
       SDLInitAudio(48000, SoundOutput.SecondaryBufferSize);
-      SDLFillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample);
+      int16 *Samples = (int16 *)calloc(SoundOutput.SamplesPerSecond, SoundOutput.BytesPerSample);
 
       SDL_PauseAudio(0);
 
@@ -499,12 +494,6 @@ int main(int argc, char *argv[])
           }
         }
 
-        game_offscreen_buffer Buffer = {};
-        Buffer.Memory = GlobalBackbuffer.Memory;
-        Buffer.Width = GlobalBackbuffer.Width;
-        Buffer.Height = GlobalBackbuffer.Height;
-        Buffer.Pitch = GlobalBackbuffer.Pitch;
-        GameUpdateAndRender(&Buffer);
 
         // Sound output test
         SDL_LockAudio();
@@ -523,8 +512,21 @@ int main(int argc, char *argv[])
           BytesToWrite = TargetCursor - ByteToLock;
         }
         SDL_UnlockAudio();
-        SDLFillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite);
 
+        game_sound_output_buffer SoundBuffer = {};
+        SoundBuffer.Samples = Samples;
+        SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
+        SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
+
+        game_offscreen_buffer Buffer = {};
+        Buffer.Memory = GlobalBackbuffer.Memory;
+        Buffer.Width = GlobalBackbuffer.Width;
+        Buffer.Height = GlobalBackbuffer.Height;
+        Buffer.Pitch = GlobalBackbuffer.Pitch;
+
+        GameUpdateAndRender(&Buffer, &SoundBuffer);
+
+        SDLFillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
         SDLUpdateWindow(Window, Renderer, &GlobalBackbuffer);
 
         uint64 EndCycleCount = _rdtsc();
@@ -536,7 +538,9 @@ int main(int argc, char *argv[])
         real64 FPS = (real64)PerfCountFrequency / (real64)CounterElapsed;
         real64 MCPF = ((real64)CyclesElapsed / (1000.0f * 1000.0f));
 
+#if 0
         printf("%.02fms/f, %.02f/s, %.02fmc/f\n", MSPerFrame, FPS, MCPF);
+#endif
 
         LastCycleCount = EndCycleCount;
         LastCounter = EndCounter;
