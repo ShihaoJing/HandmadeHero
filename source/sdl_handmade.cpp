@@ -402,7 +402,6 @@ int main(int argc, char *argv[])
       game_input *NewInput = &Input[0];
       game_input *OldInput = &Input[1];
 
-
       // NOTE: Sound test
       sdl_sound_output SoundOutput = {};
       SoundOutput.SamplesPerSecond = 48000;
@@ -413,8 +412,17 @@ int main(int argc, char *argv[])
       // Open our audio device:
       SDLInitAudio(48000, SoundOutput.SecondaryBufferSize);
       int16 *Samples = (int16 *)calloc(SoundOutput.SamplesPerSecond, SoundOutput.BytesPerSample);
-
       SDL_PauseAudio(0);
+
+      game_memory GameMemory = {};
+      GameMemory.PermanenStorageSize = Megabytes(64);
+      GameMemory.PermanentStorage = calloc(GameMemory.PermanenStorageSize, 1);
+
+      if (Samples && GameMemory.PermanentStorage)
+      {
+
+      }
+
 
       uint64 LastCounter = SDL_GetPerformanceCounter();
       uint64 LastCycleCount = _rdtsc();
@@ -538,7 +546,7 @@ int main(int argc, char *argv[])
         Buffer.Height = GlobalBackbuffer.Height;
         Buffer.Pitch = GlobalBackbuffer.Pitch;
 
-        GameUpdateAndRender(NewInput, &Buffer, &SoundBuffer);
+        GameUpdateAndRender(&GameMemory, NewInput, &Buffer, &SoundBuffer);
 
         game_input *Temp = NewInput;
         NewInput = OldInput;
