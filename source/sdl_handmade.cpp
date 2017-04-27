@@ -28,6 +28,10 @@
 #include <sys/mman.h>
 #include <stdint.h>
 #include <math.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <x86intrin.h>
 
 #define internal static
@@ -371,6 +375,100 @@ SDLProcessGamecontrollerButton(game_button_state  *OldState, game_button_state *
   NewState->HalfTransitionCount += ((NewState->EndedDown == OldState->EndedDown) ? 0 : 1);
 }
 
+inline uint32
+SafeTruncateUInt64(uint64 Value)
+{
+  Assert(Value <= 0xFFFFFFFF);
+  uint32 Result = (uint32)Value;
+  return(Result);
+}
+
+internal debug_read_file_result
+DEBUGPlatformReadEntireFile(char *Filename)
+{
+  debug_read_file_result Result = {};
+  int FileHandle = open(Filename, O_RDONLY);
+  if (FileHandle == -1)
+  {
+    return Result;
+  }
+
+  struct stat FileStatus;
+  if (fstat(FileHandle, &FileStatus) == -1)
+  {
+    close(FileHandle);
+    return Result;
+  }
+  Result.ContentsSize = SafeTruncateUInt64(FileStatus.st_size);
+
+  Result.Contents = malloc(Result.ContentsSize);
+  if (!Result.Contents)
+  {
+    Result.ContentsSize = 0;
+    close(FileHandle);
+    return Result;
+  }
+
+  uint32 BytesToRead = Result.ContentsSize;
+  uint8 *NextByteLocation = (uint8*)Result.Contents;
+  while (BytesToRead)
+  {
+    uint32 BytesRead = read(FileHandle, NextByteLocation, BytesToRead);
+    if (BytesRead == -1)
+    {
+      free(Result.Contents);
+      Result.ContentsSize = 0;
+      close(FileHandle);
+      return Result;
+    }
+    else
+    {
+      BytesToRead -= BytesRead;
+      NextByteLocation += BytesRead;
+    }
+  }
+
+  close(FileHandle);
+  return  Result;
+}
+
+internal bool32
+DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory)
+{
+  int FileHandle = open(Filename, O_WRONLY | O_CREAT,
+                        S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+
+  if (!FileHandle)
+    return false;
+
+  uint32 BytesToWrite = MemorySize;
+  uint8 *NextByteLocation = (uint8*)Memory;
+  while (BytesToWrite)
+  {
+    uint32 BytesWritten = write(FileHandle, NextByteLocation, BytesToWrite);
+    if (!BytesWritten)
+    {
+      close(FileHandle);
+      return false;
+    }
+    else
+    {
+      BytesToWrite -= BytesWritten;
+      NextByteLocation += BytesWritten;
+    }
+  }
+
+  close(FileHandle);
+  return true;
+
+}
+
+internal void
+DEBUGPlatformFreeFileMemory(void *Memory)
+{
+  free(Memory);
+}
+
 int main(int argc, char *argv[])
 {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC | SDL_INIT_AUDIO);
@@ -435,12 +533,6 @@ int main(int argc, char *argv[])
       GameMemory.TransientStorage = (uint8 *)GameMemory.PermanentStorage + GameMemory.PermanenStorageSize;
 
       Assert(GameMemory.PermanentStorage);
-
-      if (Samples && GameMemory.PermanentStorage)
-      {
-
-      }
-
 
       uint64 LastCounter = SDL_GetPerformanceCounter();
       uint64 LastCycleCount = _rdtsc();
