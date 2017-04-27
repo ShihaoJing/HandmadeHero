@@ -411,12 +411,30 @@ int main(int argc, char *argv[])
       SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
       // Open our audio device:
       SDLInitAudio(48000, SoundOutput.SecondaryBufferSize);
-      int16 *Samples = (int16 *)calloc(SoundOutput.SamplesPerSecond, SoundOutput.BytesPerSample);
+      int16 *Samples = (int16*)mmap(0, SoundOutput.SecondaryBufferSize, // NOTE: anonymous mapping are zeroed by default
+                            PROT_READ | PROT_WRITE,
+                            MAP_ANON | MAP_PRIVATE,
+                            -1, 0);
       SDL_PauseAudio(0);
+
+#if HANDMADE_INTERNAL
+      void *BaseAddress = (void *)Terabytes(2);
+#else
+      void *BaseAddress = (void *)(0);
+#endif
 
       game_memory GameMemory = {};
       GameMemory.PermanenStorageSize = Megabytes(64);
-      GameMemory.PermanentStorage = calloc(GameMemory.PermanenStorageSize, 1);
+      GameMemory.TransientStorageSize = Gigabytes(4);
+
+      uint64  TotalSize = GameMemory.PermanenStorageSize + GameMemory.TransientStorageSize;
+      GameMemory.PermanentStorage = mmap(BaseAddress, TotalSize, // NOTE: anonymous mapping are zeroed by default
+                                         PROT_READ | PROT_WRITE,
+                                         MAP_ANON | MAP_PRIVATE,
+                                         -1, 0);
+      GameMemory.TransientStorage = (uint8 *)GameMemory.PermanentStorage + GameMemory.PermanenStorageSize;
+
+      Assert(GameMemory.PermanentStorage);
 
       if (Samples && GameMemory.PermanentStorage)
       {

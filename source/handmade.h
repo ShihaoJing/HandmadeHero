@@ -4,9 +4,26 @@
 #ifndef HANDMADE_H
 #define HANDMADE_H
 
-#define Kilobytes(Value) ((Value)*1024)
-#define Megabytes(Value) (Kilobytes(Value)*1024)
-#define Gigabytes(Value) (Megabytes(Value)*1024)
+/*
+ * HAND_MADE_INTERNAL:
+ * 0 - Build for public release
+ * 1 - Build for developer only
+ *
+ * HAND_MADE_SLOW:
+ * 0 -
+ */
+
+
+#if HANDMADE_SLOW
+#define Assert(Expression) if (!(Expression)) {*(int*)0 = 0;}
+#else
+#define Assert(Expression)
+#endif
+
+#define Kilobytes(Value) ((Value)*1024LL)
+#define Megabytes(Value) (Kilobytes(Value)*1024LL)
+#define Gigabytes(Value) (Megabytes(Value)*1024LL)
+#define Terabytes(Value) (Gigabytes(Value)*1024LL)
 
 /*
  * NOTE: Services that the platform layer provides to the game.
@@ -87,6 +104,8 @@ struct game_memory
 {
   uint64 PermanenStorageSize;
   void *PermanentStorage; //NOTE: Required to be clear to 0 when allocated
+  uint64 TransientStorageSize;
+  void *TransientStorage;
   bool32 IsInitialized;
 };
 

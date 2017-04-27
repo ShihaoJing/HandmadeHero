@@ -17,6 +17,7 @@ if(HANDMADE_SLOW)
     add_definitions(-DHANDMADE_SLOW)
 endif()
 
+
 set(SOURCE_FILES sdl_handmade.cpp)
 add_executable(main ${SOURCE_FILES})
 
