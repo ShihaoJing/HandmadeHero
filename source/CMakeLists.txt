@@ -22,13 +22,13 @@ set(SOURCE_FILES sdl_handmade.cpp)
 add_executable(main ${SOURCE_FILES})
 
 include(FindPkgConfig)
-
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake_modules")
-find_package(SFML REQUIRED system window graphics network audio)
-if (SFML_FOUND)
-    include_directories(${SFML_INCLUDE_DIR})
-    target_link_libraries(main ${SFML_LIBRARIES})
-endif()
+#
+#set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake_modules")
+#find_package(SFML REQUIRED system window graphics network audio)
+#if (SFML_FOUND)
+#    include_directories(${SFML_INCLUDE_DIR})
+#    target_link_libraries(main ${SFML_LIBRARIES})
+#endif()
 
 PKG_SEARCH_MODULE(SDL2 REQUIRED sdl2)
 

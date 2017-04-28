@@ -206,8 +206,15 @@ SDLUpdateWindow(SDL_Window *Window, SDL_Renderer *Renderer, sdl_offscreen_buffer
   SDL_RenderPresent(Renderer);
 }
 
+internal void
+SDLProcessKeyPress(game_button_state *NewState, bool32 IsDown)
+{
+  Assert(NewState->EndedDown != IsDown);
+  NewState->EndedDown = IsDown;
+  ++NewState->HalfTransitionCount;
+}
 
-bool HandleEvent(SDL_Event *Event)
+bool HandleEvent(SDL_Event *Event, game_controller_input *NewKeyboardController)
 {
   bool ShouldQuit = false;
 
@@ -241,33 +248,43 @@ bool HandleEvent(SDL_Event *Event)
     {
       if(KeyCode == SDLK_w)
       {
+        SDLProcessKeyPress(&NewKeyboardController->MoveUp, IsDown);
       }
       else if(KeyCode == SDLK_a)
       {
+        SDLProcessKeyPress(&NewKeyboardController->MoveLeft, IsDown);
       }
       else if(KeyCode == SDLK_s)
       {
+        SDLProcessKeyPress(&NewKeyboardController->MoveDown, IsDown);
       }
       else if(KeyCode == SDLK_d)
       {
+        SDLProcessKeyPress(&NewKeyboardController->MoveRight, IsDown);
       }
       else if(KeyCode == SDLK_q)
       {
+        SDLProcessKeyPress(&NewKeyboardController->LeftShoulder, IsDown);
       }
       else if(KeyCode == SDLK_e)
       {
+        SDLProcessKeyPress(&NewKeyboardController->RightShoulder, IsDown);
       }
       else if(KeyCode == SDLK_UP)
       {
+        SDLProcessKeyPress(&NewKeyboardController->ActionUp, IsDown);
       }
       else if(KeyCode == SDLK_LEFT)
       {
+        SDLProcessKeyPress(&NewKeyboardController->ActionLeft, IsDown);
       }
       else if(KeyCode == SDLK_DOWN)
       {
+        SDLProcessKeyPress(&NewKeyboardController->ActionDown, IsDown);
       }
       else if(KeyCode == SDLK_RIGHT)
       {
+        SDLProcessKeyPress(&NewKeyboardController->ActionRight, IsDown);
       }
       else if(KeyCode == SDLK_ESCAPE)
       {
@@ -368,11 +385,29 @@ SDLCloseGameControllers()
 
 
 internal void
-SDLProcessGamecontrollerButton(game_button_state  *OldState, game_button_state *NewState,
-                               SDL_GameController *ControllerHandle, SDL_GameControllerButton Button)
+SDLProcessGameControllerButton(game_button_state *OldState,
+                               game_button_state *NewState,
+                               bool Value)
 {
-  NewState->EndedDown = SDL_GameControllerGetButton(ControllerHandle, Button);
-  NewState->HalfTransitionCount += ((NewState->EndedDown == OldState->EndedDown) ? 0 : 1);
+  NewState->EndedDown = Value;
+  NewState->HalfTransitionCount += (NewState->EndedDown == OldState->EndedDown) ? 0 : 1;
+}
+
+internal real32
+SDLProcessGameControllerAxisValue(int16 Value, int16 DeadZoneThreshold)
+{
+  real32 Result = 0;
+
+  if (Value < -DeadZoneThreshold)
+  {
+    Result = (real32)((Value + DeadZoneThreshold) / (32768.0f - DeadZoneThreshold));
+  }
+  else if (Value > DeadZoneThreshold)
+  {
+    Result = (real32)((Value + DeadZoneThreshold) / (32767.0f - DeadZoneThreshold));
+  }
+
+  return Result;
 }
 
 inline uint32
@@ -538,26 +573,35 @@ int main(int argc, char *argv[])
       uint64 LastCycleCount = _rdtsc();
       while(Running)
       {
+        game_controller_input *OldKeyboardController = GetController(OldInput, 0);
+        game_controller_input *NewKeyboardController = GetController(NewInput, 0);
+        *NewKeyboardController = {};
+        NewKeyboardController->IsConnected = true;
+        for (int ButtonIndex = 0; ButtonIndex < ArrayCount(NewKeyboardController->Buttons); ++ButtonIndex)
+        {
+          NewKeyboardController->Buttons[ButtonIndex].EndedDown =
+          OldKeyboardController->Buttons[ButtonIndex].EndedDown;
+        }
         SDL_Event Event;
         while(SDL_PollEvent(&Event))
         {
-          if (HandleEvent(&Event))
+          if (HandleEvent(&Event, NewKeyboardController))
           {
             Running = false;
           }
         }
 
         // Poll our controllers for input.
-        for (int ControllerIndex = 0;
+        for (int ControllerIndex = 1;
              ControllerIndex < MAX_CONTROLLERS;
              ++ControllerIndex)
         {
           if(ControllerHandles[ControllerIndex] != 0 && SDL_GameControllerGetAttached(ControllerHandles[ControllerIndex]))
           {
-            game_controller_input *OldController = &OldInput->Controllers[ControllerIndex];
-            game_controller_input *NewController = &NewInput->Controllers[ControllerIndex];
+            game_controller_input *OldController = GetController(OldInput, ControllerIndex);
+            game_controller_input *NewController = GetController(OldInput, ControllerIndex);
 
-            NewController->IsAnalog = true;
+            NewController->IsConnected = true;
             // NOTE: We have a controller with index ControllerIndex.
             bool Up = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex], SDL_CONTROLLER_BUTTON_DPAD_UP);
             bool Down = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex], SDL_CONTROLLER_BUTTON_DPAD_DOWN);
@@ -566,59 +610,87 @@ int main(int argc, char *argv[])
             bool Start = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex], SDL_CONTROLLER_BUTTON_START);
             bool Back = SDL_GameControllerGetButton(ControllerHandles[ControllerIndex], SDL_CONTROLLER_BUTTON_BACK);
 
-            SDLProcessGamecontrollerButton(&(OldController->LeftShoulder),
+            SDLProcessGameControllerButton(&(OldController->LeftShoulder),
                                            &(NewController->LeftShoulder),
-                                           ControllerHandles[ControllerIndex],
-                                           SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+                                           SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                           SDL_CONTROLLER_BUTTON_LEFTSHOULDER));
 
-            SDLProcessGamecontrollerButton(&(OldController->RightShoulder),
+            SDLProcessGameControllerButton(&(OldController->RightShoulder),
                                            &(NewController->RightShoulder),
-                                           ControllerHandles[ControllerIndex],
-                                           SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+                                           SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                           SDL_CONTROLLER_BUTTON_RIGHTSHOULDER));
 
-            SDLProcessGamecontrollerButton(&(OldController->Down),
-                                           &(NewController->Down),
-                                           ControllerHandles[ControllerIndex],
-                                           SDL_CONTROLLER_BUTTON_A);
+            SDLProcessGameControllerButton(&(OldController->ActionDown),
+                                           &(NewController->ActionDown),
+                                           SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                           SDL_CONTROLLER_BUTTON_A));
 
-            SDLProcessGamecontrollerButton(&(OldController->Right),
-                                           &(NewController->Right),
-                                           ControllerHandles[ControllerIndex],
-                                           SDL_CONTROLLER_BUTTON_B);
+            SDLProcessGameControllerButton(&(OldController->ActionRight),
+                                           &(NewController->ActionRight),
+                                           SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                           SDL_CONTROLLER_BUTTON_B));
 
-            SDLProcessGamecontrollerButton(&(OldController->Left),
-                                           &(NewController->Left),
-                                           ControllerHandles[ControllerIndex],
-                                           SDL_CONTROLLER_BUTTON_X);
+            SDLProcessGameControllerButton(&(OldController->ActionLeft),
+                                           &(NewController->ActionLeft),
+                                           SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                           SDL_CONTROLLER_BUTTON_X));
 
-            SDLProcessGamecontrollerButton(&(OldController->Right),
-                                           &(NewController->Right),
-                                           ControllerHandles[ControllerIndex],
-                                           SDL_CONTROLLER_BUTTON_Y);
+            SDLProcessGameControllerButton(&(OldController->ActionRight),
+                                           &(NewController->ActionRight),
+                                           SDL_GameControllerGetButton(ControllerHandles[ControllerIndex],
+                                           SDL_CONTROLLER_BUTTON_Y));
 
-            int16 StickX = SDL_GameControllerGetAxis(ControllerHandles[ControllerIndex], SDL_CONTROLLER_AXIS_LEFTX);
-            int16 StickY = SDL_GameControllerGetAxis(ControllerHandles[ControllerIndex], SDL_CONTROLLER_AXIS_LEFTY);
+            NewController->StickAverageX = SDLProcessGameControllerAxisValue(SDL_GameControllerGetAxis(ControllerHandles[ControllerIndex],
+                                                                                                       SDL_CONTROLLER_AXIS_LEFTX),
+                                                                             1);
+            NewController->StickAverageY = -SDLProcessGameControllerAxisValue(SDL_GameControllerGetAxis(ControllerHandles[ControllerIndex],
+                                                                                                        SDL_CONTROLLER_AXIS_LEFTY),
+                                                                              1);
 
-            if (StickX < 0)
+            if ((NewController->StickAverageX != 0.0f) ||
+                (NewController->StickAverageY != 0.0f))
             {
-              NewController->EndX = StickX / -32768.0f;
-            }
-            else
-            {
-              NewController->EndX = StickX / -32767.0f;
+              NewController->IsAnalog = true;
             }
 
-            NewController->MinX = NewController->MaxX = NewController->EndX;
+            if(SDL_GameControllerGetButton(ControllerHandles[ControllerIndex], SDL_CONTROLLER_BUTTON_DPAD_UP))
+            {
+              NewController->StickAverageY = 1.0f;
+              NewController->IsAnalog = false;
+            }
 
-            if (StickY < 0)
+            if(SDL_GameControllerGetButton(ControllerHandles[ControllerIndex], SDL_CONTROLLER_BUTTON_DPAD_DOWN))
             {
-              NewController->EndY = StickY / -32768.0f;
+              NewController->StickAverageY = -1.0f;
+              NewController->IsAnalog = false;
             }
-            else
+
+            if(SDL_GameControllerGetButton(ControllerHandles[ControllerIndex], SDL_CONTROLLER_BUTTON_DPAD_LEFT))
             {
-              NewController->EndY = StickY / -32767.0f;
+              NewController->StickAverageX = -1.0f;
+              NewController->IsAnalog = false;
             }
-            NewController->MinY = NewController->MaxY = NewController->EndY;
+
+            if(SDL_GameControllerGetButton(ControllerHandles[ControllerIndex], SDL_CONTROLLER_BUTTON_DPAD_RIGHT))
+            {
+              NewController->StickAverageX = 1.0f;
+              NewController->IsAnalog = false;
+            }
+
+            real32 Threshold = 0.5f;
+            SDLProcessGameControllerButton(&(OldController->MoveLeft),
+                                           &(NewController->MoveLeft),
+                                           NewController->StickAverageX < -Threshold);
+            SDLProcessGameControllerButton(&(OldController->MoveRight),
+                                           &(NewController->MoveRight),
+                                           NewController->StickAverageX > Threshold);
+            SDLProcessGameControllerButton(&(OldController->MoveUp),
+                                           &(NewController->MoveUp),
+                                           NewController->StickAverageY < -Threshold);
+            SDLProcessGameControllerButton(&(OldController->MoveDown),
+                                           &(NewController->MoveDown),
+                                           NewController->StickAverageY > Threshold);
+
           }
           else
           {

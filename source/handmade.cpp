@@ -47,13 +47,6 @@ GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz)
   }
 }
 
-internal game_asset*
-NewGameAsset(char *Filename)
-{
-  game_asset *Result = new game_asset;
-  return Result;
-}
-
 internal game_state*
 GameStartUp(void)
 {
@@ -73,6 +66,8 @@ GameUpdateAndRender(game_memory *Memory, game_input *Input,
                     game_offscreen_buffer *Buffer,
                     game_sound_output_buffer *SoundBuffer)
 {
+  Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
+      (ArrayCount(Input->Controllers[0].Buttons)));
   Assert(sizeof(game_state) <= Memory->PermanenStorageSize);
 
   game_state *GameState = (game_state*)Memory->PermanentStorage;
@@ -92,21 +87,41 @@ GameUpdateAndRender(game_memory *Memory, game_input *Input,
     }
   }
 
-  game_controller_input *Input0 = &Input->Controllers[0];
-  if (Input0->IsAnalog)
-  {
-    GameState->BlueOffset += (int)(4.0f*(Input0->EndX));
-    GameState->ToneHz = 256 + (int)(128.0f*(Input0->EndY));
-  }
-  else
-  {
+ for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
+ {
+   game_controller_input *Controller = GetController(Input, ControllerIndex);
+   if(Controller->IsAnalog)
+   {
+     // NOTE(casey): Use analog movement tuning
+     GameState->BlueOffset += (int)(4.0f*Controller->StickAverageX);
+     GameState->ToneHz = 256 + (int)(128.0f*Controller->StickAverageY);
+   }
+   else
+   {
+     // NOTE(casey): Use digital movement tuning
+     if(Controller->MoveLeft.EndedDown)
+     {
+       GameState->BlueOffset -= 1;
+     }
 
-  }
+     if(Controller->MoveRight.EndedDown)
+     {
+       GameState->BlueOffset += 1;
+     }
+   }
 
-  if (Input0->Down.EndedDown)
-  {
-    GameState->GreenOffset += 1;
-  }
+   // Input.AButtonEndedDown;
+   // Input.AButtonHalfTransitionCount;
+   if(Controller->ActionDown.EndedDown)
+   {
+     GameState->GreenOffset += 1;
+   }
+   if(Controller->ActionUp.EndedDown)
+   {
+     GameState->GreenOffset -= 1;
+   }
+
+ }
 
   //TODO: Allow sample offsets here for more robust platform options
   GameOutputSound(SoundBuffer, GameState->ToneHz);
