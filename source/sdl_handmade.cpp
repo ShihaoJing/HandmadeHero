@@ -33,6 +33,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <x86intrin.h>
+#include <SDL_video.h>
 
 #define internal static
 #define local_persist static
@@ -504,6 +505,31 @@ DEBUGPlatformFreeFileMemory(void *Memory)
   free(Memory);
 }
 
+internal int
+SDLGetWindowRefreshRate(SDL_Window *Window)
+{
+  SDL_DisplayMode Mode;
+  int DisplayIndex = SDL_GetWindowDisplayIndex(Window);
+
+  // If we can't find the refresh rate, we'll return this;
+  int DefaultRefreshRate = 60;
+  if (SDL_GetDesktopDisplayMode(DisplayIndex, &Mode) != 0)
+  {
+    return DefaultRefreshRate;
+  }
+  if (Mode.refresh_rate == 0)
+  {
+    return  DefaultRefreshRate;
+  }
+  return Mode.refresh_rate;
+}
+
+internal real32
+SDLGetSecondsElapsed(uint64 OldCounter, uint64 CurrentCounter)
+{
+  return (real32(CurrentCounter - OldCounter)) / (real32)(SDL_GetPerformanceFrequency());
+}
+
 int main(int argc, char *argv[])
 {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC | SDL_INIT_AUDIO);
@@ -523,6 +549,9 @@ int main(int argc, char *argv[])
     SDL_Renderer *Renderer = SDL_CreateRenderer(Window,
                                                 -1,
                                                 SDL_RENDERER_PRESENTVSYNC);
+    printf("Refresh rate is %d Hz \n", SDLGetWindowRefreshRate(Window));
+    int GameUpdateHz = 30;
+    real32 TargetSecondsPerFrame = 1.0f / (real32)GameUpdateHz;
     if (Renderer)
     {
       bool Running = true;
@@ -735,10 +764,27 @@ int main(int argc, char *argv[])
         OldInput = Temp;
 
         SDLFillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
+
+        // Enforing a video frame rate
+        if (SDLGetSecondsElapsed(LastCounter, SDL_GetPerformanceCounter()) < TargetSecondsPerFrame)
+        {
+          uint32 TimeToSleep = (uint32)((TargetSecondsPerFrame -
+              SDLGetSecondsElapsed(LastCounter, SDL_GetPerformanceCounter())) * 1000) - 1;
+          if (TimeToSleep > 0)
+          {
+            SDL_Delay(TimeToSleep);
+          }
+          //Assert(SDLGetSecondsElapsed(LastCounter, SDL_GetPerformanceCounter()) < TargetSecondsPerFrame);
+          while (SDLGetSecondsElapsed(LastCounter, SDL_GetPerformanceCounter()) < TargetSecondsPerFrame)
+          {
+            // waiting...
+          }
+        }
+        uint64 EndCounter = SDL_GetPerformanceCounter();
+
         SDLUpdateWindow(Window, Renderer, &GlobalBackbuffer);
 
         uint64 EndCycleCount = _rdtsc();
-        uint64 EndCounter = SDL_GetPerformanceCounter();
         uint64 CounterElapsed = EndCounter - LastCounter;
         uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
 
