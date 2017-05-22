@@ -6,6 +6,7 @@ else()
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wnone")
 
 option(HANDMADE_INTERNAL "Option description" 1)
 option(HANDMADE_SLOW "Option description" 1)

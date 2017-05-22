@@ -11,12 +11,19 @@ struct sdl_offscreen_buffer
   int Width;
   int Height;
   int Pitch;
+  int BytesPerPixel;
 };
 
 struct sdl_window_dimension
 {
   int Width;
   int Height;
+};
+
+struct sdl_debug_time_marker
+{
+  int PlayCursor;
+  int WriteCursor;
 };
 
 struct sdl_audio_ring_buffer
