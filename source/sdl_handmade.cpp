@@ -587,8 +587,8 @@ int main(int argc, char *argv[])
   SDL_Window *Window = SDL_CreateWindow("Handmade Hero",
                                         SDL_WINDOWPOS_UNDEFINED,
                                         SDL_WINDOWPOS_UNDEFINED,
-                                        640,
-                                        480,
+                                        800,
+                                        600,
                                         SDL_WINDOW_RESIZABLE);
   if(Window)
   {
@@ -597,7 +597,11 @@ int main(int argc, char *argv[])
                                                 -1,
                                                 SDL_RENDERER_PRESENTVSYNC);
     printf("Refresh rate is %d Hz \n", SDLGetWindowRefreshRate(Window));
-    int GameUpdateHz = 30;
+
+#define GameUpdateHz 30
+#define FramesOfAudioLatency 4
+
+    //int GameUpdateHz = 30;
     real32 TargetSecondsPerFrame = 1.0f / (real32)GameUpdateHz;
     if (Renderer)
     {
@@ -616,8 +620,8 @@ int main(int argc, char *argv[])
       SoundOutput.SamplesPerSecond = 48000;
       SoundOutput.RunningSampleIndex = 0;
       SoundOutput.BytesPerSample = sizeof(int16) * 2;
-      SoundOutput.SecondaryBufferSize = SoundOutput. SamplesPerSecond * SoundOutput.BytesPerSample;
-      SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
+      SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
+      SoundOutput.LatencySampleCount = FramesOfAudioLatency * (SoundOutput.SamplesPerSecond / GameUpdateHz);
       // Open our audio device:
       SDLInitAudio(48000, SoundOutput.SecondaryBufferSize);
       int16 *Samples = (int16*)mmap(0, SoundOutput.SecondaryBufferSize, // NOTE: anonymous mapping are zeroed by default
@@ -646,8 +650,7 @@ int main(int argc, char *argv[])
       Assert(GameMemory.PermanentStorage != MAP_FAILED);
 
       int DebugTimeMarkerIndex = 0;
-      sdl_debug_time_marker DebugTimeMarkers[GameUpdateHz / 2];
-      memset(DebugTimeMarkers, 0, (GameUpdateHz / 2) * sizeof(sdl_debug_time_marker));
+      sdl_debug_time_marker DebugTimeMarkers[GameUpdateHz / 2] = {0};
 
       uint64 LastCounter = SDL_GetPerformanceCounter();
       uint64 LastCycleCount = _rdtsc();
@@ -778,8 +781,6 @@ int main(int argc, char *argv[])
           }
         }
 
-
-        // Sound output test
         SDL_LockAudio();
         int ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
         int TargetCursor = ((AudioRingBuffer.PlayCursor +
@@ -860,9 +861,7 @@ int main(int argc, char *argv[])
         real64 FPS = (real64)PerfCountFrequency / (real64)CounterElapsed;
         real64 MCPF = ((real64)CyclesElapsed / (1000.0f * 1000.0f));
 
-#if 0
         printf("%.02fms/f, %.02f/s, %.02fmc/f\n", MSPerFrame, FPS, MCPF);
-#endif
 
         LastCycleCount = EndCycleCount;
         LastCounter = EndCounter;
